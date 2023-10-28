@@ -4,7 +4,6 @@
     "pat_url": "https://global.download.synology.com/download/DSM/release/7.1.1/42962/DSM_DS920%2B_42962.pat",
     "sha256": "90b1bd215b85eb366b3d3b6bef6bb6bef657dd0caba032dae556717b58e44c06"
   },
-
   "files": {
     "zlinux": {
       "name": "zImage",
@@ -15,10 +14,9 @@
       "sha256": "42053cbfbce34d43c50db2d68786360f644fc88af3e9bbaa6377ffa9953bf158"
     },
     "vmlinux": {
-      "sha256": "08291e1c3812de8c1416f95503b44a04edee66e233c210d9bce351bb51e081c8  "
+      "sha256": "08291e1c3812de8c1416f95503b44a04edee66e233c210d9bce351bb51e081c8 "
     }
   },
-
   "patches": {
     "zlinux": [
       "zImage-001-920p-42962-ramdisk-and-flag-NOP.bsp"
@@ -30,19 +28,20 @@
       "@@@COMMON@@@/ramdisk-004-network-hosts.patch"
     ]
   },
-
   "synoinfo": {
     "maxdisks": "16",
     "internalportcfg": "0xffff",
     "esataportcfg": "0x0",
     "buzzeroffen": "0xffff",
-    "rss_server": "http://example.com/null.xml",
-    "rss_server_ssl": "https://example.com/null.xml",
+    "rss_server": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
+    "rss_server_ssl": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
     "small_info_path": "https://example.com/null",
     "updateurl": "http://example.com/",
-    "myds_region_api_base_url": "https://example.com"
+    "myds_region_api_base_url": "https://example.com",
+    "rss_server_v2": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.json",
+    "maxlanport": "8",
+    "netif_seq": "0 1 2 3 4 5 6 7"
   },
-
   "grub": {
     "template": "@@@COMMON@@@/grub-template.conf",
     "base_cmdline": {
@@ -51,7 +50,6 @@
       "pid": "0x0001",
       "mac1": "",
       "netif_num": 1,
-
       "syno_hw_version": "DS920+",
       "intel_iommu": "igfx_off",
       "HddEnableDynamicPower": 1,
@@ -63,9 +61,7 @@
       "syno_ttyS1": "serial,0x2f8",
       "root": "/dev/md0",
       "earlycon": "uart8250,io,0x3f8,115200n8"
-
     },
-
     "menu_entries": {
       "RedPill DS920+ v7.1.1-42962 (USB, Verbose)": {
         "options": [
@@ -105,7 +101,6 @@
       }
     }
   },
-
   "extra": {
     "compress_rd": false,
     "ramdisk_copy": {
@@ -126,4 +121,3 @@
     }
   }
 }
-

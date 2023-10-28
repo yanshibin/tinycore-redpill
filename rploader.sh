@@ -1,13 +1,13 @@
 #!/bin/bash
 #
 # Author :
-# Date : 2305011
-# Version : 0.9.4.5
+# Date : 23102023
+# Version : 0.10.0.0
 #
 #
 # User Variables :
 
-rploaderver="0.9.4.5"
+rploaderver="0.10.0.0"
 build="main"
 redpillmake="prod"
 
@@ -24,8 +24,9 @@ dtsfiles="https://raw.githubusercontent.com/pocopico/tinycore-redpill/$build"
 timezone="UTC"
 ntpserver="pool.ntp.org"
 userconfigfile="/home/tc/user_config.json"
-
-fullupdatefiles="custom_config.json custom_config_jun.json global_config.json modules.alias.3.json.gz modules.alias.4.json.gz rpext-index.json user_config.json rploader.sh"
+CUSTOMCONFIG="/home/tc/custom_config.json"
+HOMEPATH="/home/tc"
+fullupdatefiles="${CUSTOMCONFIG} custom_config.json custom_config_jun.json global_config.json modules.alias.3.json.gz modules.alias.4.json.gz rpext-index.json user_config.json rploader.sh"
 
 # END Do not modify after this line
 ######################################################################################################
@@ -94,6 +95,11 @@ function history() {
     0.9.4.3 Added serial numbers prefixes for SA6400, added class 104 to listpci function
     0.9.4.4 Added cmdmonitor function
     0.9.4.5 Changed the way the system is updated to use the new build method
+    0.9.4.6 Updated configuration files, minor fixes, changed from 64551 to 64561
+    0.9.4.7 Added missing configs, Added support for RS3413xs+
+    0.9.4.8 Updated httpconf to support php uploader
+    0.9.4.9 Included DS1019+ DS1520+ DS1621xs+ DS723+
+    0.10.0.0 Jumping to version 10, HTML Builder is introduced to public
     --------------------------------------------------------------------------------------
 EOF
 
@@ -140,8 +146,9 @@ function setnetwork() {
 }
 
 function httpconf() {
-
     tce-load -iw lighttpd 2>&1 >/dev/null
+    tce-load -iw php-8.0-cgi 2>&1 >/dev/null
+    sudo cp /home/tc/include/php.ini /usr/local/etc/php/
 
     cat >/home/tc/lighttpd.conf <<EOF
 server.document-root = "/home/tc/html"
@@ -152,11 +159,11 @@ server.username             = "tc"
 server.groupname            = "staff"
 server.port                 = 80
 alias.url       = ( "/rploader/" => "/home/tc/html/" )
-cgi.assign = ( ".sh" => "/usr/local/bin/bash" )
-index-file.names           = ( "index.html","index.htm", "index.sh" )
+cgi.assign = ( ".sh" => "/usr/local/bin/bash",  ".php" => "/usr/local/bin/php-cgi" )
+index-file.names           = ( "index.sh", "index.html","index.htm" )
 
 EOF
-
+    ps -ef | grep -i light | grep -v grep | awk '{print $1}' | xargs kill -9
     sudo lighttpd -f /home/tc/lighttpd.conf
 
     [ $(sudo netstat -an 2>/dev/null | grep LISTEN | grep ":80" 2>/dev/null | wc -l) -eq 1 ] && echo "Server started succesfully"
@@ -207,7 +214,7 @@ function extremove() {
 
 function extvars() {
 
-    ext="$(curl --silent --location $1)"
+    ext="$(curl --insecure --silent --location $1)"
     platform="$2"
     [ $(echo $ext | grep 404 | wc -l) -eq 1 ] && echo "Extension not found" && exit 1
     if [ -f platform ] && [ ! "$(cat platform)" == "$platform" ]; then
@@ -219,7 +226,7 @@ function extvars() {
     fi
 
     extid="$(echo $ext | jq -r -e .id)"
-    extrelease="$(curl --silent --location $extcontents)"
+    extrelease="$(curl --insecure --silent --location $extcontents)"
 
     [ $(echo $extrelease | jq . | wc -l) -eq 0 ] && echo "Extension does not contain information about platform $2" && exit 1
 
@@ -246,7 +253,7 @@ function processexts() {
             download=$(echo $extrelease | jq -r -e ".files[] | select(.name | contains(\"$file\")) .url")
             modules="$(echo $extrelease | jq -r -e '.kmods')"
             echo " Downloading : $name "
-            cd $extid && curl --silent --location $download -O && cd ..
+            cd $extid && curl --insecure --silent --location $download -O && cd ..
 
             packed=$(echo $extrelease | jq -r -e ".files[] | select(.name | contains(\"$file\")) .packed")
 
@@ -449,6 +456,8 @@ function monitor() {
     NETGW="$(route | grep -i def | awk '{print $2}')"
     ping -c 5 $NEWGW >/dev/null &
     [ ! -d /lib64 ] && sudo ln -s /lib /lib64
+    sudo chown -R tc:staff /home/tc >/dev/null 2>&1
+    sudo chown -R tc:staff /opt >/dev/null 2>&1
 
     while [ -z "$GATEWAY_INTERFACE" ]; do
         clear
@@ -515,7 +524,7 @@ function syntaxcheck() {
 
         serialgen)
             echo "Syntax error, You have to specify one of the existing models"
-            echo "DS3615xs DS3617xs DS916+ DS918+ DS920+ DS3622xs+ FS6400 DVA3219 DVA3221 DS1621+ DVA1622 DS2422+ RS4021xs+ DS923+ DS1522+ SA6400"
+            echo "DS3615xs DS3617xs DS916+ DS918+ DS920+ DS3622xs+ FS6400 DVA3219 DVA3221 DS1621+ DVA1622 DS2422+ RS4021xs+ DS923+ DS1522+ SA6400 FS2500 RS3413xs+ DS1019+ DS1520+ DS1621xs+ DS723+"
             ;;
 
         patchdtc)
@@ -586,7 +595,7 @@ function restoresession() {
             if [ -d $lastsessiondir ] && [ -f ${lastsessiondir}/extensions.list ]; then
                 for extension in $(cat ${lastsessiondir}/extensions.list); do
                     echo "Adding extension ${extension} "
-                    cd /home/tc/redpill-load/ && ./ext-manager.sh add "$(echo $extension | sed -s 's/"//g' | sed -s 's/,//g')"
+                    cd /home/tc/redpill-load/ && ./ext-manager.sh add "$(echo $extension | sed -e 's/"//g' | sed -e 's/,//g')"
                 done
             fi
             if [ -d $lastsessiondir ] && [ -f ${lastsessiondir}/user_config.json ]; then
@@ -655,11 +664,11 @@ function downloadextractor() {
         cpio -idm <rd 2>&1 || echo "extract rd"
         mkdir extract
 
-        mkdir /mnt/${tcrppart}/auxfiles && cd /mnt/${tcrppart}/auxfiles
+        mkdir -p /mnt/${tcrppart}/auxfiles && cd /mnt/${tcrppart}/auxfiles
 
         echo "Copying required files to local cache folder for future use"
 
-        mkdir /mnt/${tcrppart}/auxfiles/extractor
+        mkdir -p /mnt/${tcrppart}/auxfiles/extractor
 
         for file in usr/lib/libcurl.so.4 usr/lib/libmbedcrypto.so.5 usr/lib/libmbedtls.so.13 usr/lib/libmbedx509.so.1 usr/lib/libmsgpackc.so.2 usr/lib/libsodium.so usr/lib/libsynocodesign-ng-virtual-junior-wins.so.7 usr/syno/bin/scemd; do
             echo "Copying $file to /mnt/${tcrppart}/auxfiles"
@@ -718,12 +727,19 @@ function processpat() {
             if [ -f /home/tc/redpill-load/cache/${SYNOMODEL}.pat ] && [ ${isencrypted} = "no" ]; then
                 echo "Unecrypted file is already cached in :  /home/tc/redpill-load/cache/${SYNOMODEL}.pat"
                 patfile="/home/tc/redpill-load/cache/${SYNOMODEL}.pat"
-            else
+            elif [ -f /bin/syno_extract_system_patch ]; then
                 echo "Extracting encrypted pat file : ${patfile} to ${temp_pat_folder}"
                 sudo /bin/syno_extract_system_patch ${patfile} ${temp_pat_folder} || echo "extract latest pat"
                 echo "Creating unecrypted pat file ${SYNOMODEL}.pat to /home/tc/redpill-load/cache folder "
                 mkdir -p /home/tc/redpill-load/cache/
-                cd ${temp_pat_folder} && tar -czf /home/tc/redpill-load/cache/${SYNOMODEL}.pat ./
+                cd ${temp_pat_folder} && tar -czf /home/tc/redpill-load/cache/${SYNOMODEL}.pat *
+                patfile="/home/tc/redpill-load/cache/${SYNOMODEL}.pat"
+            else
+                echo "Extracting encrypted pat file : ${patfile} to ${temp_pat_folder}"
+                sudo LD_LIBRARY_PATH=/home/tc/custom-module/patch-extractor/lib/ /home/tc/custom-module/patch-extractor/synoarchive.system -xvf ${patfile} -C ${temp_pat_folder}
+                echo "Creating unecrypted pat file ${SYNOMODEL}.pat to /home/tc/redpill-load/cache folder "
+                mkdir -p /home/tc/redpill-load/cache/
+                cd ${temp_pat_folder} && tar -czf /home/tc/redpill-load/cache/${SYNOMODEL}.pat *
                 patfile="/home/tc/redpill-load/cache/${SYNOMODEL}.pat"
 
             fi
@@ -734,7 +750,7 @@ function processpat() {
             exit 99
         fi
 
-        tar xvf /home/tc/redpill-load/cache/${SYNOMODEL}.pat ./VERSION && . ./VERSION && rm ./VERSION
+        tar xvf /home/tc/redpill-load/cache/${SYNOMODEL}.pat VERSION && . ./VERSION && rm -f ./VERSION
         os_sha256=$(sha256sum ${patfile} | awk '{print $1}')
         echo "Pat file  sha256sum is : $os_sha256"
 
@@ -743,7 +759,7 @@ function processpat() {
             echo "OK"
             configfile="/home/tc/redpill-load/config/$MODEL/${major}.${minor}.${micro}-${buildnumber}/config.json"
         else
-            echo "No config file found, please use the proper repo, clean and download again"
+            echo "Config file /home/tc/redpill-load/config/$MODEL/${major}.${minor}.${micro}-${buildnumber}/config.json not found, please use the proper repo, clean and download again"
             exit 99
         fi
 
@@ -769,7 +785,7 @@ function processpat() {
         echo "Could not find pat file locally cached"
         configdir="/home/tc/redpill-load/config/${MODEL}/${TARGET_VERSION}-${TARGET_REVISION}"
         configfile="${configdir}/config.json"
-        pat_url=$(cat ${configfile} | jq '.os .pat_url' | sed -s 's/"//g')
+        pat_url=$(cat ${configfile} | jq '.os .pat_url' | sed -e 's/"//g')
         echo -e "Configdir : $configdir \nConfigfile: $configfile \nPat URL : $pat_url"
         echo "Downloading pat file from URL : ${pat_url} "
 
@@ -830,11 +846,11 @@ function testarchive() {
 
 function addrequiredexts() {
 
-    echo "Processing add_extensions entries found on custom_config.json file : ${EXTENSIONS}"
+    echo "Processing add_extensions entries found on ${CUSTOMCONFIG} file : ${EXTENSIONS}"
 
     for extension in ${EXTENSIONS_SOURCE_URL}; do
         echo "Adding extension ${extension} "
-        cd /home/tc/redpill-load/ && ./ext-manager.sh add "$(echo $extension | sed -s 's/"//g' | sed -s 's/,//g')"
+        cd /home/tc/redpill-load/ && ./ext-manager.sh add "$(echo $extension | sed -e 's/"//g' | sed -e 's/,//g')"
     done
     for extension in ${EXTENSIONS}; do
         echo "Updating extension : ${extension} contents for model : ${SYNOMODEL}  "
@@ -1367,69 +1383,88 @@ function removebundledexts() {
 
 function downloadextractorv2() {
 
-    [ ! -d /home/tc/patch-extractor/ ] && mkdir /home/tc/patch-extractor/
+    echo "Downloading extractor v2"
 
-    cd /home/tc/patch-extractor/
+    if [ -d /mnt/${tcrppart}/auxfiles/patch-extractor/lib/ ] && [ -f /mnt/${tcrppart}/auxfiles/patch-extractor/synoarchive.system ]; then
 
-    [ -f /home/tc/oldpat.tar.gz ] || curl --insecure --location https://global.download.synology.com/download/DSM/release/7.0.1/42218/DSM_DS3622xs%2B_42218.pat --output /home/tc/oldpat.tar.gz
+        echo "Extractor already cached"
+        echo "Copying to local directory" && cp -rf /mnt/${tcrppart}/auxfiles/patch-extractor /home/tc/patch-extractor/
 
-    tar xf ../oldpat.tar.gz hda1.tgz
-    tar xf hda1.tgz usr/lib
-    tar xf hda1.tgz usr/syno/sbin
+    else
 
-    [ ! -d /home/tc/patch-extractor/lib/ ] && mkdir /home/tc/patch-extractor/lib/
+        [ ! -d /home/tc/patch-extractor/ ] && mkdir -p /home/tc/patch-extractor/
 
-    cp usr/lib/libicudata.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libicui18n.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libicuuc.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libjson.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libboost_program_options.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libboost_locale.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libboost_filesystem.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libboost_thread.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libboost_coroutine.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libboost_regex.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libapparmor.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libjson-c.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libsodium.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libboost_context.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libsynocrypto.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libsynocredentials.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libboost_iostreams.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libsynocore.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libicuio.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libboost_chrono.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libboost_date_time.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libboost_system.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libsynocodesign.so.7* /home/tc/patch-extractor/lib
-    cp usr/lib/libsynocredential.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libjson-glib-1.0.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libboost_serialization.so* /home/tc/patch-extractor/lib
-    cp usr/lib/libmsgpackc.so* /home/tc/patch-extractor/lib
+        cd /home/tc/patch-extractor/
 
-    cp -r usr/syno/sbin/synoarchive /home/tc/patch-extractor/
+        [ ! -f /home/tc/oldpat.tar.gz ] && curl --insecure --location https://global.download.synology.com/download/DSM/release/7.0.1/42218/DSM_DS3622xs%2B_42218.pat --output /home/tc/oldpat.tar.gz
 
-    sudo rm -rf usr
-    sudo rm -rf ../oldpat.tar.gz
-    sudo rm -rf hda1.tgz
+        [ -f /home/tc/oldpat.tar.gz ] && echo "OK old pat downloaded !!!" || echo "ERROR downloading old pat !!!"
 
-    curl --insecure --silent --location https://github.com/pocopico/tinycore-redpill/blob/main/tools/xxd?raw=true --output xxd
+        tar xf ../oldpat.tar.gz hda1.tgz || echo "Error : could not extract extractor pat file, maybe corrupted"
+        tar xf hda1.tgz usr/lib || echo "Error : could not extract extractor pat file, maybe corrupted"
+        tar xf hda1.tgz usr/syno/sbin || echo "Error : could not extract extractor pat file, maybe corrupted"
 
-    chmod +x xxd
+        [ ! -d /home/tc/patch-extractor/lib/ ] && mkdir /home/tc/patch-extractor/lib/
 
-    ./xxd synoarchive | sed -s 's/000039f0: 0300/000039f0: 0100/' | ./xxd -r >synoarchive.nano
-    ./xxd synoarchive | sed -s 's/000039f0: 0300/000039f0: 0a00/' | ./xxd -r >synoarchive.smallpatch
-    ./xxd synoarchive | sed -s 's/000039f0: 0300/000039f0: 0000/' | ./xxd -r >synoarchive.system
+        cp usr/lib/libicudata.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libicui18n.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libicuuc.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libjson.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libboost_program_options.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libboost_locale.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libboost_filesystem.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libboost_thread.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libboost_coroutine.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libboost_regex.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libapparmor.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libjson-c.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libsodium.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libboost_context.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libsynocrypto.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libsynocredentials.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libboost_iostreams.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libsynocore.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libicuio.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libboost_chrono.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libboost_date_time.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libboost_system.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libsynocodesign.so.7* /home/tc/patch-extractor/lib
+        cp usr/lib/libsynocredential.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libjson-glib-1.0.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libboost_serialization.so* /home/tc/patch-extractor/lib
+        cp usr/lib/libmsgpackc.so* /home/tc/patch-extractor/lib
 
-    chmod +x synoarchive.*
+        cp -r usr/syno/sbin/synoarchive /home/tc/patch-extractor/
 
-    [ ! -d /mnt/${tcrppart}/auxfiles/patch-extractor ] && mkdir /mnt/${tcrppart}/auxfiles/patch-extractor
+        sudo rm -rf usr
+        sudo rm -rf ../oldpat.tar.gz
+        sudo rm -rf hda1.tgz
 
-    cp -rf /home/tc/patch-extractor/lib /mnt/${tcrppart}/auxfiles/patch-extractor/
-    cp -rf /home/tc/patch-extractor/synoarchive* /mnt/${tcrppart}/auxfiles/patch-extractor/
+        curl --insecure --silent --location https://github.com/pocopico/tinycore-redpill/blob/main/tools/xxd?raw=true --output xxd
 
-    sudo cp -rf /home/tc/patch-extractor/lib /lib
-    sudo cp -rf /home/tc/patch-extractor/synoarchive.* /bin
+        chmod +x xxd
+
+        ./xxd synoarchive | sed -e 's/000039f0: 0300/000039f0: 0100/' | ./xxd -r >synoarchive.nano
+        ./xxd synoarchive | sed -e 's/000039f0: 0300/000039f0: 0a00/' | ./xxd -r >synoarchive.smallpatch
+        ./xxd synoarchive | sed -e 's/000039f0: 0300/000039f0: 0000/' | ./xxd -r >synoarchive.system
+
+        chmod +x synoarchive.*
+
+        [ ! -d /mnt/${tcrppart}/auxfiles/patch-extractor ] && mkdir -p /mnt/${tcrppart}/auxfiles/patch-extractor
+
+        cp -rf /home/tc/patch-extractor/lib /mnt/${tcrppart}/auxfiles/patch-extractor/
+        cp -rf /home/tc/patch-extractor/synoarchive* /mnt/${tcrppart}/auxfiles/patch-extractor/
+
+        sudo cp -rf /home/tc/patch-extractor/lib /lib
+        sudo cp -rf /home/tc/patch-extractor/synoarchive.* /bin
+
+        LD_LIBRARY_PATH=/home/tc/patch-extractor/lib /bin/synoarchive.nano >/dev/null 2>&1
+        retVal=$?
+        if [ $retVal -ne 3 ]; then
+            echo "Error : could not execute synoarchive.nano, maybe corrupted" && exit $retval
+        fi
+
+    fi
 
 }
 
@@ -1456,7 +1491,7 @@ function downloadupgradepat() {
         echo "Selected model : ${model} "
 
         PS3="Select update version : "
-        select version in $(curl --insecure --silent https://archive.synology.com/download/Os/DSM/ | grep "/download/Os/DSM/7" | awk '{print $2}' | awk -F\/ '{print $5}' | sed -s 's/"//g'); do
+        select version in $(curl --insecure --silent https://archive.synology.com/download/Os/DSM/ | grep "/download/Os/DSM/7" | awk '{print $2}' | awk -F\/ '{print $5}' | sed -e 's/"//g'); do
             echo "Selected version : $version"
             selectedmodel=$(echo $model | sed -e 's/DS//g' | sed -e 's/RS//g' | sed -e 's/DVA//g' | sed -e 's/+//g')
             PS3="Select pat file URL : "
@@ -1751,7 +1786,7 @@ function patchdtc() {
     localnvme=$(lsblk | grep -i nvme | awk '{print $1}')
     usbpid=$(cat user_config.json | jq '.extra_cmdline .pid' | sed -e 's/"//g' | sed -e 's/0x//g')
     usbvid=$(cat user_config.json | jq '.extra_cmdline .vid' | sed -e 's/"//g' | sed -e 's/0x//g')
-    loaderusb=$(lsusb | grep "${usbvid}:${usbpid}" | awk '{print $2 "-"  $4 }' | sed -e 's/://g' | sed -s 's/00//g')
+    loaderusb=$(lsusb | grep "${usbvid}:${usbpid}" | awk '{print $2 "-"  $4 }' | sed -e 's/://g' | sed -e 's/00//g')
 
     if [ "${TARGET_PLATFORM}" = "v1000" ]; then
         dtbfile="ds1621p"
@@ -2214,13 +2249,60 @@ function usbidentify() {
     fi
 }
 
+function generategrub() {
+
+    cd ${HOMEPATH}
+
+    sudo rm -rf grub.cfg
+
+    echo "Generating GRUB entries for model :${SYNOMODEL} in $(pwd)"
+
+    ${HOMEPATH}/include/grubmgr.sh generate "${SYNOMODEL}" && [ -f grub.cfg ] && echo "Generated successfully" || echo "Failed to generate grub.cfg"
+    ${HOMEPATH}/include/grubmgr.sh addentry usb && [ $(grep -i USB grub.cfg | wc -l) -gt 0 ] && echo "Added USB entry" || echo "Failed to add USB entry"
+    ${HOMEPATH}/include/grubmgr.sh addentry sata && [ $(grep -i SATA grub.cfg | wc -l) -gt 0 ] && echo "Added SATA entry" || echo "Failed to add SATA entry"
+    ${HOMEPATH}/include/grubmgr.sh addentry tcrp && [ $(grep -i "Tiny Core Image Build" grub.cfg | wc -l) -gt 0 ] && echo "Added TCRP entry" || echo "Failed to add SATA entry"
+    ${HOMEPATH}/include/grubmgr.sh addentry tcrpfriend && [ $(grep -i "Tiny Core Friend" grub.cfg | wc -l) -gt 0 ] && echo "Added TCRP FRIEND entry" || echo "Failed to add SATA entry"
+
+    [ -f ${HOMEPATH}/redpill-load/localdiskp1/boot/grub/grub.cfg ] && cp ${HOMEPATH}/redpill-load/localdiskp1/boot/grub/grub.cfg ${HOMEPATH}/redpill-load/part1/boot/grub/grub.cfg
+
+    grep "menuentry" ${HOMEPATH}/grub.cfg
+    echo "Copying grub file ${HOMEPATH}/grub.cfg to ${HOMEPATH}/redpill-load/localdiskp1/boot/grub/grub.cfg"
+    sudo cp -f ${HOMEPATH}/grub.cfg ${HOMEPATH}/redpill-load/localdiskp1/boot/grub/grub.cfg
+    grep "menuentry" ${HOMEPATH}/redpill-load/localdiskp1/boot/grub/grub.cfg
+
+}
+
+setgrubentry() {
+
+    echo "Setting next grub entry "
+
+    default="$(grep menuentry ${HOMEPATH}/redpill-load/localdiskp1/boot/grub/grub.cfg | awk -F\' '{print $2}' | grep -i Friend)"
+    ISUSB="$(udevadm info --query property --name /dev/${loaderdisk} | grep -i DEVPATH | grep -i USB | wc -l)"
+    if [ "$staticboot" = "true " ] && [ "$ISUSB" = "1" ]; then
+        usbentry="$(grep menuentry ${HOMEPATH}/redpill-load/localdiskp1/boot/grub/grub.cfg | awk -F\' '{print $2}' | grep -i USB)"
+        echo "Setting next grub entry to static USB : $usbentry"
+        sudo /usr/local/bin/grub-editenv ${HOMEPATH}/redpill-load/localdiskp1/boot/grub/grubenv set saved_entry="$usbentry"
+    elif [ "$staticboot" = "true " ] && [ "$ISUSB" = "0" ]; then
+        sataentry="$(grep menuentry ${HOMEPATH}/redpill-load/localdiskp1/boot/grub/grub.cfg | awk -F\' '{print $2}' | grep -i SATA)"
+        echo "Setting next grub entry to static SATA : $sataentry"
+        sudo /usr/local/bin/grub-editenv ${HOMEPATH}/redpill-load/localdiskp1/boot/grub/grubenv set saved_entry="$sataentry"
+    else
+        echo "Setting next grub entry to Friend : $default"
+        sudo /usr/local/bin/grub-editenv ${HOMEPATH}/redpill-load/localdiskp1/boot/grub/grubenv set saved_entry="$default"
+    fi
+
+    savedentry="$(sudo /usr/local/bin/grub-editenv ${HOMEPATH}/redpill-load/localdiskp1/boot/grub/grubenv list | awk -F= '{print $2}')"
+    echo "Grub entry has been set to : $savedentry"
+
+}
+
 function serialgen() {
 
     [ ! -z "$GATEWAY_INTERFACE" ] && shift 0 || shift 1
 
     [ "$2" == "realmac" ] && let keepmac=1 || let keepmac=0
 
-    if [ "$1" = "DS3615xs" ] || [ "$1" = "DS3617xs" ] || [ "$1" = "DS916+" ] || [ "$1" = "DS918+" ] || [ "$1" = "DS920+" ] || [ "$1" = "DS3622xs+" ] || [ "$1" = "FS6400" ] || [ "$1" = "DVA3219" ] || [ "$1" = "DVA3221" ] || [ "$1" = "DS1621+" ] || [ "$1" = "DVA1622" ] || [ "$1" = "DS2422+" ] || [ "$1" = "RS4021xs+" ] || [ "$1" = "DS1522+" ] || [ "$1" = "DS923+" ] || [ "$1" = "SA6400" ]; then
+    if [ "$1" = "DS3615xs" ] || [ "$1" = "DS3617xs" ] || [ "$1" = "DS916+" ] || [ "$1" = "DS918+" ] || [ "$1" = "DS920+" ] || [ "$1" = "DS3622xs+" ] || [ "$1" = "FS6400" ] || [ "$1" = "DVA3219" ] || [ "$1" = "DVA3221" ] || [ "$1" = "DS1621+" ] || [ "$1" = "DVA1622" ] || [ "$1" = "DS2422+" ] || [ "$1" = "RS4021xs+" ] || [ "$1" = "DS1522+" ] || [ "$1" = "DS923+" ] || [ "$1" = "SA6400" ] || [ "$1" = "FS2500" ] || [ "$1" = "RS3413xs+" ] || [ "$1" = "ds1019p" ] || [ "$1" = "dS1520p" ] || [ "$1" = "ds1621xsp" ] || [ "$1" = "ds723p" ]; then
         serial="$(generateSerial $1)"
         mac="$(generateMacAddress $1)"
         realmac=$(ifconfig eth0 | head -1 | awk '{print $NF}')
@@ -2242,9 +2324,9 @@ function serialgen() {
             json="$(jq --arg var "$serial" '.extra_cmdline.sn = $var' user_config.json)" && echo -E "${json}" | jq . >user_config.json
 
             if [ $keepmac -eq 1 ]; then
-                macaddress=$(echo $realmac | sed -s 's/://g')
+                macaddress=$(echo $realmac | sed -e 's/://g')
             else
-                macaddress=$(echo $mac | sed -s 's/://g')
+                macaddress=$(echo $mac | sed -e 's/://g')
             fi
 
             json="$(jq --arg var "$macaddress" '.extra_cmdline.mac1 = $var' user_config.json)" && echo -E "${json}" | jq . >user_config.json
@@ -2254,7 +2336,7 @@ function serialgen() {
         fi
     else
         echo "Error : $1 is not an available model for serial number generation. "
-        echo "Available Models : DS3615xs DS3617xs DS916+ DS918+ DS920+ DS3622xs+ FS6400 DVA3219 DVA3221 DS1621+ DVA1622 DS2422+ RS4021xs+ DS923+ DS1522+ SA6400"
+        echo "Available Models : DS3615xs DS3617xs DS916+ DS918+ DS920+ DS3622xs+ FS6400 DVA3219 DVA3221 DS1621+ DVA1622 DS2422+ RS4021xs+ DS923+ DS1522+ SA6400 FS2500 RS3413xs+ DS1019+ DS1520+ DS1621xs+ DS723+"
     fi
 
 }
@@ -2294,6 +2376,14 @@ function beginArray() {
         permanent="PSN"
         serialstart="1960"
         ;;
+    FS2500)
+        permanent="PSN"
+        serialstart="1960"
+        ;;
+    RS3413xs+)
+        permanent="LWN"
+        serialstart="1130 1230 1330 1430"
+        ;;
     DVA3219)
         permanent="RFR"
         serialstart="1930 1940"
@@ -2323,6 +2413,22 @@ function beginArray() {
         serialstart="2270"
         ;;
     SA6400)
+        permanent="TQR"
+        serialstart="2270"
+        ;;
+    DS1019+)
+        permanent="QXR"
+        serialstart="1850"
+        ;;
+    DS1521+)
+        permanent="RYR"
+        serialstart="2060"
+        ;;
+    DS1621xs+)
+        permanent="S7R"
+        serialstart="2080"
+        ;;
+    DS723+)
         permanent="TQR"
         serialstart="2270"
         ;;
@@ -2390,6 +2496,12 @@ function generateSerial() {
     FS6400)
         serialnum="$(echo "$serialstart" | tr ' ' '\n' | sort -R | tail -1)$permanent"$(random)
         ;;
+    FS2500)
+        serialnum="$(echo "$serialstart" | tr ' ' '\n' | sort -R | tail -1)$permanent"$(random)
+        ;;
+    RS3413xs+)
+        serialnum="$(echo "$serialstart" | tr ' ' '\n' | sort -R | tail -1)$permanent"$(random)
+        ;;
     DS920+)
         serialnum=$(toupper "$(echo "$serialstart" | tr ' ' '\n' | sort -R | tail -1)$permanent"$(generateRandomLetter)$(generateRandomValue)$(generateRandomValue)$(generateRandomValue)$(generateRandomValue)$(generateRandomLetter))
         ;;
@@ -2423,6 +2535,19 @@ function generateSerial() {
     SA6400)
         serialnum=$(toupper "$(echo "$serialstart" | tr ' ' '\n' | sort -R | tail -1)$permanent"$(generateRandomLetter)$(generateRandomValue)$(generateRandomValue)$(generateRandomValue)$(generateRandomValue)$(generateRandomLetter))
         ;;
+    DS1019+)
+        serialnum=$(toupper "$(echo "$serialstart" | tr ' ' '\n' | sort -R | tail -1)$permanent"$(generateRandomLetter)$(generateRandomValue)$(generateRandomValue)$(generateRandomValue)$(generateRandomValue)$(generateRandomLetter))
+        ;;
+    DS1520+)
+        serialnum=$(toupper "$(echo "$serialstart" | tr ' ' '\n' | sort -R | tail -1)$permanent"$(generateRandomLetter)$(generateRandomValue)$(generateRandomValue)$(generateRandomValue)$(generateRandomValue)$(generateRandomLetter))
+        ;;
+    DS1621xs+)
+        serialnum=$(toupper "$(echo "$serialstart" | tr ' ' '\n' | sort -R | tail -1)$permanent"$(generateRandomLetter)$(generateRandomValue)$(generateRandomValue)$(generateRandomValue)$(generateRandomValue)$(generateRandomLetter))
+        ;;
+    DS723+)
+        serialnum=$(toupper "$(echo "$serialstart" | tr ' ' '\n' | sort -R | tail -1)$permanent"$(generateRandomLetter)$(generateRandomLetter)$(generateRandomValue)$(generateRandomValue)$(generateRandomValue)$(generateRandomValue)$(generateRandomLetter))
+        ;;
+
     esac
 
     echo $serialnum
@@ -2473,14 +2598,14 @@ function gettoolchain() {
 
 function getPlatforms() {
 
-    platform_versions=$(jq -s '.[0].build_configs=(.[1].build_configs + .[0].build_configs | unique_by(.id)) | .[0]' custom_config_jun.json custom_config.json | jq -r '.build_configs[].id')
+    platform_versions=$(jq -s '.[0].build_configs=(.[1].build_configs + .[0].build_configs | unique_by(.id)) | .[0]' custom_config_jun.json ${CUSTOMCONFIG} | jq -r '.build_configs[].id')
     echo "$platform_versions"
 
 }
 
 function selectPlatform() {
 
-    platform_selected=$(jq -s '.[0].build_configs=(.[1].build_configs + .[0].build_configs | unique_by(.id)) | .[0]' custom_config_jun.json custom_config.json | jq ".build_configs[] | select(.id==\"${1}\")")
+    platform_selected=$(jq -s '.[0].build_configs=(.[1].build_configs + .[0].build_configs | unique_by(.id)) | .[0]' custom_config_jun.json ${CUSTOMCONFIG} | jq ".build_configs[] | select(.id==\"${1}\")")
 
 }
 function getValueByJsonPath() {
@@ -2493,10 +2618,12 @@ function getValueByJsonPath() {
 
 function readConfig() {
 
-    if [ ! -e custom_config.json ]; then
-        cat global_config.json
+    if [ ! -e ${CUSTOMCONFIG} ]; then
+        echo "Custom config file not found, using default"
+        curl --insecure -L ${rploaderrepo}/custom_config2.json --output ${CUSTOMCONFIG}
+        #cat global_config.json
     else
-        jq -s '.[0].build_configs=(.[1].build_configs + .[0].build_configs | unique_by(.id)) | .[0]' custom_config_jun.json custom_config.json
+        jq -s '.[0].build_configs=(.[1].build_configs + .[0].build_configs | unique_by(.id)) | .[0]' custom_config_jun.json ${CUSTOMCONFIG}
     fi
 
 }
@@ -2637,7 +2764,7 @@ Available platform versions:
 ----------------------------------------------------------------------------------------
 $(getPlatforms)
 ----------------------------------------------------------------------------------------
-Check custom_config.json for platform settings.
+Check ${CUSTOMCONFIG} for platform settings.
 EOF
 }
 
@@ -2649,7 +2776,7 @@ Version : $rploaderver
 ----------------------------------------------------------------------------------------
 Usage: ${0} <action> <platform version> <static or compile module> [extension manager arguments]
 
-Actions: build, ext, download, clean, update, listmod, serialgen, identifyusb, patchdtc, 
+Actions: build, ext, download, clean, update, listmods, serialgen, identifyusb, patchdtc, 
 satamap, backup, backuploader, restoreloader, restoresession, mountdsmroot, postupdate, 
 mountshare, version, monitor, bringfriend, downloadupgradepat, help 
 
@@ -2657,7 +2784,7 @@ mountshare, version, monitor, bringfriend, downloadupgradepat, help
   Build the 💊 RedPill LKM and update the loader image for the specified platform version and update
   current loader.
 
-  Valid Options:     static/compile/manual/junmod/withfriend
+  Valid Options:     static/compile/manual/junmod/withfriend** (default: withfriend)
 
   ** withfriend add the TCRP friend and a boot option for auto patching 
   
@@ -2689,7 +2816,7 @@ mountshare, version, monitor, bringfriend, downloadupgradepat, help
   
 - serialgen <synomodel> <option> :
   Generates a serial number and mac address for the following platforms 
-  DS3615xs DS3617xs DS916+ DS918+ DS920+ DS3622xs+ FS6400 DVA3219 DVA3221 DS1621+ DVA1622 DS2422+ RS4021xs+ DS923+ DS1522+ SA6400
+  DS3615xs DS3617xs DS916+ DS918+ DS920+ DS3622xs+ FS6400 DVA3219 DVA3221 DS1621+ DVA1622 DS2422+ RS4021xs+ DS923+ DS1522+ SA6400 FS2500 RS3413xs+ DS1019+ DS1520+ DS1621xs+ DS723+
   
   Valid Options :  realmac , keeps the real mac of interface eth0
   
@@ -2834,7 +2961,7 @@ function getstaticmodule() {
         fi
     done
 
-    if [ -f redpill.ko ] && [ -n $(strings redpill.ko | grep $SYNOMODEL) ]; then
+    if [ -f redpill.ko ] && [ -n $(strings redpill.ko | grep $SYNOMODEL | head -1) ]; then
         REDPILL_MOD_NAME="redpill-linux-v$(modinfo redpill.ko | grep vermagic | awk '{print $2}').ko"
         mv /home/tc/redpill.ko /home/tc/redpill-load/ext/rp-lkm/${REDPILL_MOD_NAME}
     else
@@ -2871,7 +2998,7 @@ function buildloader() {
         echo "Missing serial and/or mac in userconfig.json , generating random"
         serial="$(generateSerial $MODEL)"
         macaddress="$(generateMacAddress $MODEL | sed -e 's/://g')"
-        echo "Randon serial = $serial, macaddress = $macaddress"
+        echo "Random serial = $serial, macaddress = $macaddress"
         json="$(jq --arg var "$serial" '.extra_cmdline.sn = $var' user_config.json)" && echo -E "${json}" | jq . >user_config.json
         json="$(jq --arg var "$macaddress" '.extra_cmdline.mac1 = $var' user_config.json)" && echo -E "${json}" | jq . >user_config.json
 
@@ -2901,7 +3028,7 @@ function buildloader() {
     if [ ${TARGET_REVISION} -gt 42218 ]; then
 
         echo "Found build request for revision greater than 42218"
-        downloadextractor
+        downloadextractorv2
         processpat
 
     else
@@ -2966,24 +3093,24 @@ function buildloader() {
     echo "Mounting /dev/${loaderdisk}2 to localdiskp2 "
 
     if [ $(mount | grep -i part1 | wc -l) -eq 1 ] && [ $(mount | grep -i part2 | wc -l) -eq 1 ] && [ $(mount | grep -i localdiskp1 | wc -l) -eq 1 ] && [ $(mount | grep -i localdiskp2 | wc -l) -eq 1 ]; then
-        sudo cp -rf part1/* localdiskp1/
-        sudo cp -rf part2/* localdiskp2/
-        echo "Replacing set root with filesystem UUID instead"
-        sudo sed -i "s/set root=(hd0,msdos1)/search --set=root --fs-uuid $usbpart1uuid --hint hd0,msdos1/" localdiskp1/boot/grub/grub.cfg
-        echo "Creating tinycore entry"
-        tinyentry | sudo tee --append localdiskp1/boot/grub/grub.cfg
+        echo "Copying custom.gz to ${tcrppart}" && cp part1/custom.gz /mnt/${tcrppart}/custom.gz
 
-        if [ "$WITHFRIEND" = "YES" ]; then
+        sudo rm -f part1/custom.gz && sudo cp -rf part1/* localdiskp1/
+        sudo rm -f part1/custom.gz && sudo cp -rf part2/* localdiskp2/
 
-            [ ! -f /home/tc/friend/initrd-friend ] && [ ! -f /home/tc/friend/bzImage-friend ] && bringoverfriend
+        ###echo "Replacing set root with filesystem UUID instead"
+        ###sudo sed -i "s/set root=(hd0,msdos1)/search --set=root --fs-uuid $usbpart1uuid --hint hd0,msdos1/" localdiskp1/boot/grub/grub.cfg
+        ###echo "Creating tinycore entry"
+        ###tinyentry | sudo tee --append localdiskp1/boot/grub/grub.cfg
 
-            if [ -f /home/tc/friend/initrd-friend ] && [ -f /home/tc/friend/bzImage-friend ]; then
+        [ ! -f /home/tc/friend/initrd-friend ] && [ ! -f /home/tc/friend/bzImage-friend ] && bringoverfriend
 
-                cp /home/tc/friend/initrd-friend /mnt/${loaderdisk}3/
-                cp /home/tc/friend/bzImage-friend /mnt/${loaderdisk}3/
+        if [ -f /home/tc/friend/initrd-friend ] && [ -f /home/tc/friend/bzImage-friend ]; then
 
-                tcrpfriendentry | sudo tee --append /home/tc/redpill-load/localdiskp1/boot/grub/grub.cfg
-            fi
+            cp /home/tc/friend/initrd-friend /mnt/${loaderdisk}3/
+            cp /home/tc/friend/bzImage-friend /mnt/${loaderdisk}3/
+
+            #tcrpfriendentry | sudo tee --append /home/tc/redpill-load/localdiskp1/boot/grub/grub.cfg
         fi
 
     else
@@ -3017,39 +3144,31 @@ function buildloader() {
 
     cp $userconfigfile /mnt/${loaderdisk}3/
 
-    if [ "$WITHFRIEND" = "YES" ]; then
+    cp localdiskp1/zImage /mnt/${loaderdisk}3/zImage-dsm
 
-        cp localdiskp1/zImage /mnt/${loaderdisk}3/zImage-dsm
+    generategrub
 
-        # Compining rd.gz and custom.gz
+    setgrubentry
 
-        [ ! -d /home/tc/rd.temp ] && mkdir /home/tc/rd.temp
-        [ -d /home/tc/rd.temp ] && cd /home/tc/rd.temp
-        RD_COMPRESSED=$(cat /home/tc/redpill-load/config/$MODEL/${TARGET_VERSION}-${TARGET_REVISION}/config.json | jq -r -e ' .extra .compress_rd')
+    cd ${HOMEPATH}/redpill-load
 
-        if [ "$RD_COMPRESSED" = "false" ]; then
-            echo "Ramdisk in not compressed "
-            cat /home/tc/redpill-load/localdiskp1/rd.gz | sudo cpio -idm
-            cat /home/tc/redpill-load/localdiskp1/custom.gz | sudo cpio -idm
-            sudo chmod +x /home/tc/rd.temp/usr/sbin/modprobe
-            (cd /home/tc/rd.temp && sudo find . | sudo cpio -o -H newc -R root:root >/mnt/${loaderdisk}3/initrd-dsm) >/dev/null
-        else
-            unlzma -dc /home/tc/redpill-load/localdiskp1/rd.gz | sudo cpio -idm
-            cat /home/tc/redpill-load/localdiskp1/custom.gz | sudo cpio -idm
-            sudo chmod +x /home/tc/rd.temp/usr/sbin/modprobe
-            (cd /home/tc/rd.temp && sudo find . | sudo cpio -o -H newc -R root:root | xz -9 --format=lzma >/mnt/${loaderdisk}3/initrd-dsm) >/dev/null
-        fi
+    # Compining rd.gz and custom.gz
 
-        echo "Setting default boot entry to TCRP Friend"
-        cd /home/tc/redpill-load/ && sudo sed -i "/set default=\"*\"/cset default=\"3\"" localdiskp1/boot/grub/grub.cfg
+    [ ! -d /home/tc/rd.temp ] && mkdir /home/tc/rd.temp
+    [ -d /home/tc/rd.temp ] && cd /home/tc/rd.temp
+    RD_COMPRESSED=$(cat /home/tc/redpill-load/config/$MODEL/${TARGET_VERSION}-${TARGET_REVISION}/config.json | jq -r -e ' .extra .compress_rd')
 
+    if [ "$RD_COMPRESSED" = "false" ]; then
+        echo "Ramdisk in not compressed "
+        cat /home/tc/redpill-load/localdiskp1/rd.gz | sudo cpio -idm
+        cat /mnt/${tcrppart}/custom.gz | sudo cpio -idm
+        sudo chmod +x /home/tc/rd.temp/usr/sbin/modprobe
+        (cd /home/tc/rd.temp && sudo find . | sudo cpio -o -H newc -R root:root >/mnt/${loaderdisk}3/initrd-dsm) >/dev/null
     else
-
-        if [ "$MACHINE" = "VIRTUAL" ]; then
-            echo "Setting default boot entry to SATA"
-            cd /home/tc/redpill-load/ && sudo sed -i "/set default=\"*\"/cset default=\"1\"" localdiskp1/boot/grub/grub.cfg
-        fi
-
+        unlzma -dc /home/tc/redpill-load/localdiskp1/rd.gz | sudo cpio -idm
+        cat /mnt/${tcrppart}/custom.gz | sudo cpio -idm
+        sudo chmod +x /home/tc/rd.temp/usr/sbin/modprobe
+        (cd /home/tc/rd.temp && sudo find . | sudo cpio -o -H newc -R root:root | xz -9 --format=lzma >/mnt/${loaderdisk}3/initrd-dsm) >/dev/null
     fi
 
     cd /home/tc/redpill-load/
@@ -3205,6 +3324,10 @@ function setplatform() {
         SYNOMODEL="dva1622_$TARGET_REVISION" && MODEL="DVA1622"
     elif [ "${TARGET_PLATFORM}" = "ds2422p" ]; then
         SYNOMODEL="ds2422p_$TARGET_REVISION" && MODEL="DS2422+"
+    elif [ "${TARGET_PLATFORM}" = "fs2500" ]; then
+        SYNOMODEL="fs2500_$TARGET_REVISION" && MODEL="FS2500"
+    elif [ "${TARGET_PLATFORM}" = "rs3413xsp" ]; then
+        SYNOMODEL="rs3413xsp_$TARGET_REVISION" && MODEL="RS3413xs+"
     elif [ "${TARGET_PLATFORM}" = "rs4021xsp" ]; then
         SYNOMODEL="rs4021xsp_$TARGET_REVISION" && MODEL="RS4021xs+"
     elif [ "${TARGET_PLATFORM}" = "r1000" ] || [ "${TARGET_PLATFORM}" = "ds923p" ]; then
@@ -3212,7 +3335,16 @@ function setplatform() {
     elif [ "${TARGET_PLATFORM}" = "ds1522p" ]; then
         SYNOMODEL="ds1522p_$TARGET_REVISION" && MODEL="DS1522+"
     elif [ "${TARGET_PLATFORM}" = "sa6400" ]; then
-        SYNOMODEL="ds923p_$TARGET_REVISION" && MODEL="sa6400"
+        SYNOMODEL="sa6400_$TARGET_REVISION" && MODEL="sa6400"
+    elif [ "${TARGET_PLATFORM}" = "ds1019p" ]; then
+        SYNOMODEL="ds1019p_$TARGET_REVISION" && MODEL="DS1019+"
+    elif [ "${TARGET_PLATFORM}" = "dS1520p" ]; then
+        SYNOMODEL="ds1520p_$TARGET_REVISION" && MODEL="DS1520+"
+    elif [ "${TARGET_PLATFORM}" = "ds1621xsp" ]; then
+        SYNOMODEL="ds1621xsp_$TARGET_REVISION" && MODEL="DS1621xs+"
+    elif [ "${TARGET_PLATFORM}" = "ds723p" ]; then
+        SYNOMODEL="ds723p_$TARGET_REVISION" && MODEL="DS723+"
+
     fi
 
 }
@@ -3231,7 +3363,7 @@ function getvars() {
     LKM_SOURCE_URL="$(echo $platform_selected | jq -r -e '.redpill_lkm .source_url')"
     LKM_BRANCH="$(echo $platform_selected | jq -r -e '.redpill_lkm .branch')"
     #EXTENSIONS="$(echo $platform_selected | jq -r -e '.add_extensions[]')"
-    EXTENSIONS="$(echo $platform_selected | jq -r -e '.add_extensions[]' | grep json | awk -F: '{print $1}' | sed -s 's/"//g')"
+    EXTENSIONS="$(echo $platform_selected | jq -r -e '.add_extensions[]' | grep json | awk -F: '{print $1}' | sed -e 's/"//g')"
     #EXTENSIONS_SOURCE_URL="$(echo $platform_selected | jq '.add_extensions[] .url')"
     EXTENSIONS_SOURCE_URL="$(echo $platform_selected | jq '.add_extensions[]' | grep json | awk '{print $2}')"
     TOOLKIT_URL="$(echo $platform_selected | jq -r -e '.downloads .toolkit_dev .url')"
@@ -3251,7 +3383,7 @@ function getvars() {
 
     [ ! -h /lib64 ] && sudo ln -s /lib /lib64
 
-    sudo chown -R tc:staff /home/tc
+    sudo chown -R tc:staff /home/tc >/dev/null 2>&1
 
     if [ ! -n "$(which bspatch)" ]; then
 
@@ -3269,7 +3401,7 @@ function getvars() {
     [ ! -h /home/tc/custom-module ] && sudo ln -s $local_cache /home/tc/custom-module
 
     if [ -z "$TARGET_PLATFORM" ] || [ -z "$TARGET_VERSION" ] || [ -z "$TARGET_REVISION" ]; then
-        echo "Error : Platform not found "
+        echo "Error : Platform not found : $TARGET_PLATFORM $TARGET_VERSION $TARGET_REVISION"
         showhelp
         exit 99
     fi
@@ -3377,6 +3509,25 @@ function listpci() {
             ;;
         esac
     done
+
+}
+
+function deprecated() {
+
+    case $1 in
+
+    bringfriend)
+        echo "Deprecated function : $1, friend is included by default in this version of rploader"
+        ;;
+    removefriend)
+        echo "Deprecated function : $1, friend is included by default in this version of rploader"
+        ;;
+    *)
+        echo "Deprecated function : $1"
+        ;;
+
+    esac
+    exit 99
 
 }
 
@@ -3544,7 +3695,7 @@ if [ -z "$GATEWAY_INTERFACE" ]; then
             echo "Using static compiled redpill extension"
             getstaticmodule
             echo "Got $REDPILL_MOD_NAME "
-            listmodules
+            #listmodules
             echo "Starting loader creation "
             buildloader junmod
             [ $? -eq 0 ] && savesession
@@ -3555,7 +3706,7 @@ if [ -z "$GATEWAY_INTERFACE" ]; then
             echo "Using static compiled redpill extension"
             getstaticmodule
             echo "Got $REDPILL_MOD_NAME "
-            listmodules
+            #listmodules
             echo "Starting loader creation "
             buildloader
             [ $? -eq 0 ] && savesession
@@ -3679,11 +3830,11 @@ if [ -z "$GATEWAY_INTERFACE" ]; then
         exit 0
         ;;
     bringfriend)
-        bringfriend
+        deprecated $@
         exit 0
         ;;
     removefriend)
-        removefriend
+        deprecated $@
         exit 0
         ;;
     downloadupgradepat)

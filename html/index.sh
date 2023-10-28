@@ -5,7 +5,7 @@
 HOMEPATH="/home/tc"
 TEMPPAT="${HOMEPATH}/temppat"
 CONFIGFILES="${HOMEPATH}/config"
-CUSTOMCONFIG="${HOMEPATH}/custom_config.json"
+CUSTOMCONFIG="${HOMEPATH}/custom_config2.json"
 PATCHEXTRACTOR="${HOMEPATH}/patch-extractor"
 THISURL="index.sh"
 BUILDLOG="/home/tc/html/buildlog.txt"
@@ -17,7 +17,7 @@ SCRIPTREPO="https://github.com/pocopico/tinycore-redpill/raw/main/html/index.sh"
 extensionrepofile="https://github.com/pocopico/tcrp-addons/raw/main/addons.json"
 extensionfile="addons.json"
 TOOLS="bspatch bzImage-to-vmlinux.sh calc_run_size.sh crc32 dtc kexec ramdisk-patch.sh vmlinux-to-bzImage.sh xxd zimage-patch.sh kpatch zImage_template.gz grub-editenv"
-SCRIPTVERSION="0.10.0"
+SCRIPTVERSION="0.10.10"
 
 #. ${HOMEPATH}/include/config.sh
 ############################################
@@ -27,11 +27,16 @@ function versionhistory() {
   cat <<EOF
 <h3> TCRP HTML, Version History : </h3>
 <br> 0.10.0, Initial release, most models tested and booted.
-<br>
-<br>
-<br>
-<br>
-<br>
+<br> 0.10.1, Added file download functions to the web interface, fixed some bugs.
+<br> 0.10.2, Fixed some bugs, added more models.
+<br> 0.10.3, Added full image backup function
+<br> 0.10.4, Fixed long standing issue with the corruption of the user_config.json file.
+<br> 0.10.5, Various fixes
+<br> 0.10.6, Added, Logs viewer, and fixed some bugs.
+<br> 0.10.7, Enhanced the redpill model detection as some modules failed to be included.
+<br> 0.10.8, Created the filemanagement function, and added the ability to process files.
+<br> 0.10.9, **Critical, Fixed missing init.post patch
+<br> 0.10.10, Fixed an issue preventing version history and update check
 
 EOF
 
@@ -59,6 +64,7 @@ function pagehead() {
       }
     </style>
     <link href="assets/css/bootstrap-responsive.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
     <link href="assets/css/tcrp.css" rel="stylesheet">
     
 
@@ -261,6 +267,81 @@ EOF
 
 }
 
+function filemanagement() {
+
+  getvars
+
+  SYNOMODEL="$(echo $MODEL | sed -e 's/+/p/g' | tr '[:upper:]' '[:lower:]')"
+  REVISION="$(echo "${VERSION}" | awk -F- '{print $2}')"
+  patfile="${SYNOMODEL}_${REVISION}.pat"
+  unencpatfile="${SYNOMODEL}_${REVISION}.pat-unenc"
+  cat <<EOF
+   <div class="filemanagement">
+      <div class="title-bar">
+        <h3>Files Download</h3>  
+     </div>
+<table class="table table-dark">
+<thead><tr><th title="Field #1">Filename</th>
+<th title="Field #2">Description</th>
+<th title="Field #3">Link</th>
+</tr></thead>
+<tbody>
+EOF
+
+  [ $(ls -l ${HOMEPATH}/html/backupfiles | wc -l) -eq 0 ] && echo "<tr><td>Backup Files will be listed here to download</td><td>after a succesfull build</td><td><a href=</a></td></tr>"
+  [ -f backupfiles/$patfile ] && echo "<tr><td>Original downloaded PAT for $MODEL version $VERSION</td><td>Use that for the installation</td><td><a href=/backupfiles/$patfile>$patfile</a></td></tr>"
+  [ -f backupfiles/$unencpatfile ] && echo "<tr><td>Unencrypted PAT file for $MODEL version $VERSION</td><td>Keep that as a backup</td><td><a href=/backupfiles/$unencpatfile>$unencpatfile</a></td></tr>"
+  [ -f backupfiles/user_config.json ] && echo "<tr><td>User Config file for $MODEL version $VERSION</td><td>Keep that as a backup</td><td><a href=/backupfiles/user_config.json>user_config.json</a></td></tr>"
+
+  echo "</tbody></table>"
+
+  if [ $(ls /home/tc/html/files | wc -l) -gt 0 ]; then
+    cat <<EOF
+
+<table class="table table-dark">
+<thead><tr><th title="Field #1">Uploaded Filename</th>
+<th title="Field #2">Description</th>
+<th title="Field #3">Link</th>
+<th title="Field #4">Action</th>
+</tr></thead>
+<tbody><tr>
+EOF
+    for file in $(ls /home/tc/html/files); do
+      fileextension="$(echo $file | awk -F. '{print $NF}')"
+      action="$(usefiles $fileextension)"
+      echo "<tr><td>$file</td><td>Uploaded file</td><td><a href=/files/$file>$file</a></td><td><a class=\"btn btn-primary btn-lg active\" role=\"button\" aria-pressed=\"true\" href=/files.sh?action=delfile&file=$file>Delete</a>$action</td></tr>"
+    done
+
+    cat <<EOF
+   
+</tr></tbody></table></div>
+
+<a class="btn btn-danger btn-lg active btnright" role="button" aria-pressed="true" href=/files.sh?action=delfile&file=ALL>Empty Folder</a>
+
+EOF
+  fi
+  cat <<EOF
+<form action="upload.php" method="post" enctype="multipart/form-data">
+<label for="fileToUpload" class="custom-file-upload btn-normal" data-toggle="tooltip" data-placement="bottom" title="If you want to use a pat file use the following naming convention: <model>-<version>.pat e.g ds3622xsp-42962.pat"> Select file to upload (max 500MB)</label>
+<input type="file" name="fileToUpload" id="fileToUpload" class="custom-file-input">
+<input type="submit" value="Upload File" name="submit" class="btn-success">
+</form>
+
+EOF
+
+}
+
+function usefiles() {
+
+  fileextension="$1"
+
+  echo "Extension : $fileextension" >>usefile.log
+  [ "$fileextension" == "zip" ] && echo "<a class=\"btn btn-success btn-lg active\" role=\"button\" aria-pressed=\"true\" href=/files.sh?action=usefile&file=$file>Use File</a>" && echo "Found ZIP file" >>usefile.log
+  [ "$fileextension" == "pat" ] && echo "<a class=\"btn btn-success btn-lg active\" role=\"button\" aria-pressed=\"true\" href=/files.sh?action=usefile&file=$file>Use File</a>" && echo "Found PAT file" >>usefile.log
+  [ "$fileextension" == "json" ] && echo "<a class=\"btn btn-success btn-lg active\" role=\"button\" aria-pressed=\"true\" href=/files.sh?action=usefile&file=$file>Use File</a>" && echo "Found JSON FILE" >>usefile.log
+
+}
+
 function selectmodel() {
 
   cat <<EOF
@@ -269,7 +350,7 @@ function selectmodel() {
 EOF
   echo "<option value=\"'Please Select Model\">Select Model</option>"
   #for model in `getPlatforms`
-  for model in $(ls ${CONFIGFILES} | grep -v comm | sed -e 's/\///'); do
+  for model in $(ls ${CONFIGFILES} | grep -v comm | grep -v disabled | sed -e 's/\///'); do
     echo "<option value=\"'$model\">$model</option>"
   done
   cat <<EOF
@@ -290,8 +371,8 @@ function selectversion() {
 <input id="mymodel" name="mymodel" value="$MODEL" required readonly/>
 <label for="myversion">Version</label>
 <select id="myversion" name="myversion">
+<option value="Please Select OS Version">Select version</option>
 EOF
-  echo "<option value=\"'Please Select OS Version\">Select version</option>"
   for version in $(ls ${CONFIGFILES}/$MODEL/ | grep -v comm | sed -e 's/\///'); do
     echo "<option value=\"'$version\">$version</option>"
   done
@@ -332,6 +413,86 @@ function backuploader() {
 
 }
 
+function imgbackuploader() {
+
+  loaderdisk="$(mount | grep -i optional | grep cde | awk -F / '{print $3}' | uniq | cut -c 1-3)"
+  tcrppart="$(mount | grep -i optional | grep cde | awk -F / '{print $3}' | uniq | cut -c 1-3)3"
+  homesize=$(du -sh /home/tc | awk '{print $1}')
+  backupdate="$(date +%Y-%b-%d-%H-%M)"
+
+  if [ ! -n "$loaderdisk" ] || [ ! -n "$tcrppart" ]; then
+    echo "No Loader disk or no TCRP partition found, return"
+    return
+  fi
+
+  wecho "Backing up current loader"
+  wecho "Checking backup folder existence"
+
+  [ ! -d /tmp/backup/${backupdate} ] && mkdir -p /tmp/backup/${backupdate}
+
+  wecho "Temporarily moving PAT files $(ls /mnt/${loaderdisk}3/auxfiles/*.pat) to /tmp/temppatdir"
+  mkdir -p /tmp/temppatdir
+  mv /mnt/${loaderdisk}3/auxfiles/*.pat /tmp/temppatdir/
+
+  availsize=$(df -m /mnt/sda3 | grep sda3 | awk '{print $4}')
+  wecho "Rezeroing free space on partition 3"
+  dd if=/dev/zero of=/mnt/${loaderdisk}3/zeros bs=1M count=$(($availsize - 1))
+  rm -f /mnt/${loaderdisk}3/zeros
+
+  wecho "Unmounting partition 1" && umount /dev/${loaderdisk}1
+  wecho "Unmounting partition 2" && umount /dev/${loaderdisk}2
+  wecho "Unmounting partition 3" && umount /dev/${loaderdisk}3
+
+  dd if=/dev/${loaderdisk} of=/tmp/backup/${backupdate}/tcrpimg-${backupdate}.img bs=1M
+
+  cd /tmp/backup/${backupdate} && 7z a -t7z -m0=lzma -mfb=64 -md=32m -ms=on /tmp/tcrpimg-${backupdate}.7z *
+  ln -s /tmp/tcrpimg-${backupdate}.7z /${HOMEPATH}/html/backupfiles/tcrpimg-${backupdate}.7z
+  cd /tmp && rm -rf /tmp/backup/
+
+  wecho "Moving back PAT files to /mnt/${loaderdisk}3/auxfiles/"
+  mv /tmp/temppatdir/*.pat /mnt/${loaderdisk}3/auxfiles/
+
+  echo "<br> You can download the backup file : <a href=/backupfiles/tcrpimg-${backupdate}.7z>tcrpimg-${backupdate}.7z</a></br>"
+  wecho "DONE"
+
+}
+
+function showlogs() {
+
+  getvars
+
+  LOGSPATH="${HOMEPATH}/html/logs"
+  mkdir -p ${LOGSPATH}
+
+  cat <<EOF
+   <div class="filemanagement">
+      <div class="title-bar">
+        <h3>Files Download</h3>  
+     </div>
+<table class="table table-dark">
+<thead><tr><th title="Field #1">Log File</th>
+<th title="Field #2">Description</th>
+<th title="Field #3">Link</th>
+</tr></thead>
+<tbody><tr>
+EOF
+
+  [ -f ${BUILDLOG} ] && echo "<td>Current Build Log</td><td>Use that as a build troubleshooting report</td><td><a href=/buildlog.txt>Build Log</a></td></tr>"
+  [ -f /mnt/${tcrppart}/exts/extlog.log ] && [ ! -h ${LOGSPATH}/extlog.log ] && ln -s /mnt/${tcrppart}/exts/extlog.log ${LOGSPATH}/extlog.log || echo "<td>Last ext load Log</td><td>Use that as a boot troubleshooting report</td><td><a href=/logs/extlog.log>Ext Log</a></td></tr>"
+  [ -f /mnt/${tcrppart}/friendlog.log ] && [ ! -h ${LOGSPATH}/friendlog.log ] && ln -s /mnt/${tcrppart}/friendlog.log ${LOGSPATH}/friendlog.log || echo "<td>Last TCRP Friend load Log</td><td>Use that as a TCRP Friend troubleshooting report</td><td><a href=/logs/friendlog.log>Friend log</a></td></tr>"
+  [ -f /mnt/${tcrppart}/extlog/linuxrc.syno.log ] && [ ! -h ${LOGSPATH}/linuxrc.syno.log ] && ln -s /mnt/${tcrppart}/extlog/linuxrc.syno.log ${LOGSPATH}/linuxrc.syno.log || echo "<td>Last booted linuxrc.syno.log</td><td>Use that as a boot troubleshooting report</td><td><a href=/logs/linuxrc.syno.log>linuxrc.syno.log</a></td></tr>"
+  [ -f /mnt/${tcrppart}/extlog/junior_reason ] && [ ! -h ${LOGSPATH}/junior_reason ] && ln -s /mnt/${tcrppart}/extlog/junior_reason ${LOGSPATH}/junior_reason || echo "<td>Last junior reason Log</td><td>Use that for boot troubleshooting report</td><td><a href=/logs/junior_reason>Junior Reason</a></td></tr>"
+  [ -f /mnt/${tcrppart}/extlog/messages ] && [ ! -h ${LOGSPATH}/messages ] && ln -s /mnt/${tcrppart}/extlog/messages ${LOGSPATH}/messages || echo "<td>Last boot kernel messages Log</td><td>Use that for boot troubleshooting report</td><td><a href=/logs/messages>messages</a></td></tr>"
+
+  cat <<EOF
+</tr></tbody></table>
+
+      </div>
+    
+EOF
+
+}
+
 function pagebody() {
   cat <<EOF
 
@@ -350,7 +511,9 @@ function pagebody() {
               Additional Actions
               </a>
               <ul class="dropdown-menu">
+                <li><a class=" dropdown-item" href="${THISURL}?action=filemanagement">Down/Upload Files</a></li>
                 <li><a class=" dropdown-item" href="${THISURL}?action=backuploader">Backup Loader</a></li>
+                <li><a class=" dropdown-item" href="${THISURL}?action=imgbackuploader">Image Backup Loader</a></li>
                 <li><a class=" dropdown-item" href="${THISURL}?action=fullupgrade">Full upgrade loader</a></li>
                 <li><a class=" dropdown-item" href="${THISURL}?action=cleanloader">Clean Loader </a></li>
                 <li><a class=" dropdown-item" href="${THISURL}?action=listplatforms">List Platforms</a><li>
@@ -360,12 +523,14 @@ function pagebody() {
                 <li><a class=" dropdown-item" href="${THISURL}?action=buildstatus">Last build status</a><li>
                 <hr class="dropdown-divider">
                 <li><a class="dropdown-item" href="${THISURL}?action=resetmodel" onclick="return confirm('About to reset the model are you sure?, this will permanently remove model info from /home/tc/user_config.json')" data-toggle="confirmation" data-title="Reset Model ?">Reset Model</a></li>
+                <hr class="dropdown-divider">
+                <li><a class="dropdown-item" href="${THISURL}?action=sysreboot" onclick="return confirm('About to reboot tinycore are you sure?')" data-toggle="confirmation" data-title="Reboot Tinycore ?">Reboot Tinycore</a></li>
               </ul>
               </li>
+              <li><a href="${THISURL}?action=showlogs">Logs</a></li>
               <li><a href="https://github.com/pocopico/tinycore-redpill">Tinycore Redpill Repo</a></li>
               <li><a href="https://xpenology.com/forum/topic/53817-redpill-tinycore-loader/">Contact</a></li>
-              <li><a href="${THISURL}?action=versionhistory">Version ${SCRIPTVERSION}</a></li>
-             
+              <li><a href="${THISURL}?action=versionhistory">Version ${SCRIPTVERSION}</a></li>           
             </ul>
              
           </div><!--/.nav-collapse -->
@@ -591,6 +756,7 @@ console.log("build result page");
       \$('#buildstatus').show();
 }
 
+
 });
 
 var buildlog = document.getElementById('buildlog');
@@ -620,6 +786,10 @@ getLog();
       \$('#buildlog').show();
     }
 
+    function hidebuildlog() {
+      \$('#buildlog').hide();
+    }
+
  function togglemac(e) {
       let txt = e.innerText;
       e.innerText = txt == 'Real Mac' ? 'Gen Mac' : 'Real Mac';
@@ -635,6 +805,10 @@ function onModelChange() {
 \$('#redpillmake').tooltip({'trigger':'focus', 'title': 'Change the redpill make to development or production'});
 \$('#macaddress').tooltip({'trigger':'focus', 'title': 'Change the mac address to what you like or leave the generated one'});
 \$('#serial').tooltip({'trigger':'focus', 'title': 'Change the serial to what you like or leave the generated one'});
+\$('#sataportmap').tooltip({'trigger':'focus', 'title': 'Thats a calculated value, if you dont know what that does leave that as is'});
+\$('#diskidxmap').tooltip({'trigger':'focus', 'title': 'Thats a calculated value, if you dont know what that does leave that as is'});
+\$('#staticboot').tooltip({'trigger':'focus', 'title': 'Set this to true if you have issues with booting TCRP Friend'});
+
 
 
 </script>
@@ -649,6 +823,20 @@ EOF
   </body>
 </html>
 EOF
+
+}
+
+function sysreboot() {
+
+  wecho "System is going for reboot" | tee -a $LOGFILE
+  rm -rf ${HOMEPATH}/html/files/* >>/dev/null
+  #unlink ${HOMEPATH}/html/assets/*pat >> /dev/null
+  sync
+  sync
+  sync
+  backuploader
+  wecho "Rebooting" | tee -a $LOGFILE
+  sleep 2 && /usr/bin/exitcheck.sh reboot | tee -a $LOGFILE
 
 }
 
@@ -679,7 +867,7 @@ function serialgen() {
     echo "Serial Number for Model = $serial"
     echo "Mac Address for Model $1 = $mac "
 
-    macaddress=$(echo $mac | sed -s 's/://g')
+    macaddress=$(echo $mac | sed -e 's/://g')
 
     updateuserconfigfield "extra_cmdline" "sn" "${serial}"
     updateuserconfigfield "extra_cmdline" "mac1" "${macaddress}"
@@ -976,12 +1164,28 @@ function updateuserconfigfield() {
   block="$1"
   field="$2"
   value="$3"
+  retries=0
 
-  if [ -n "$1 " ] && [ -n "$2" ]; then
-    jsonfile=$(jq ".$block+={\"$field\":\"$value\"}" $USERCONFIGFILE)
-    echo $jsonfile | jq . >$USERCONFIGFILE
+  while [ -f update.tmp ]; do
+    [ $retries -gt 10 ] && rm -f update.tmp
+    echo "$(date) - Waiting for update.tmp to be removed" >>updateconfig.log
+    sleep 1
+    retries=$((retries + 1))
+  done
+
+  if [ "$(jq -re ".$block.$field" $USERCONFIGFILE)" != "$value" ]; then
+
+    if [ -n "$1 " ] && [ -n "$2" ]; then
+      jsonfile=$(jq ".$block+={\"$field\":\"$value\"}" $USERCONFIGFILE >update.tmp && mv -f update.tmp $USERCONFIGFILE)
+      #echo $jsonfile | jq . >$USERCONFIGFILE
+      echo "Updating field in $block , $field to $value" >>updateconfig.log
+      verify="$(jq -re .${block}.${field} $USERCONFIGFILE)"
+      echo "Verifying user config file for values $block, $field, $value -> $verify" >>updateconfig.log
+    else
+      echo "No values to update specified"
+    fi
   else
-    echo "No values to update specified"
+    return
   fi
 }
 
@@ -1031,6 +1235,10 @@ function buildform() {
   getvars
   satamap
 
+  checkuserconfig "$MODEL" "$VERSION"
+
+  #echo "$(date) : step 1 $(jq . $USERCONFIGFILE | wc -l)" >>${BUILDLOG}
+
   updateuserconfigfield "general" "model" "$MODEL"
   updateuserconfigfield "general" "version" "$VERSION"
 
@@ -1042,12 +1250,9 @@ function buildform() {
 
   fi
 
-  if [ -z "$productid" ] || [ -z "$vendorid"]; then
-    usbidentify
-    updateuserconfigfield "extra_cmdline" "pid" "$productid"
-    updateuserconfigfield "extra_cmdline" "vid" "$vendorid"
-
-  fi
+  usbidentify
+  updateuserconfigfield "extra_cmdline" "pid" "$productid"
+  updateuserconfigfield "extra_cmdline" "vid" "$vendorid"
 
   updateuserconfigfield "extra_cmdline" "SataPortMap" "$SATAPORTMAP"
   updateuserconfigfield "extra_cmdline" "DiskIdxMap" "$DISKIDXMAP"
@@ -1108,13 +1313,19 @@ EOF
   <div class="control-group">
   <label  class="control-label" for="sataportmap">SataPortMap</label>
   <div class="controls">
-  <input id="sataportmap" name="sataportmap" value="$SATAPORTMAP" required readonly/>
+  <input id="sataportmap" name="sataportmap" value="$SATAPORTMAP" required/>
    </div>
   </div>
     <div class="control-group">
   <label  class="control-label" for="diskidxmap">DiskIdxMap</label>
   <div class="controls">
-  <input id="diskidxmap" name="diskidxmap" value="$DISKIDXMAP" required readonly />
+  <input id="diskidxmap" name="diskidxmap" value="$DISKIDXMAP" required/>
+   </div>
+  </div>
+    <div class="control-group">
+  <label  class="control-label" for="staticboot">Static Boot</label>
+  <div class="controls">
+  <input id="staticboot" name="staticboot" value="false" required/>
    </div>
   </div>
 <!--
@@ -1219,17 +1430,17 @@ function satamap() {
 
 function checkcached() {
 
-  patfile="$(find /mnt/$tcrppart/auxfiles/ | grep -i $OS_ID)"
+  patfile="$(find /mnt/$tcrppart/auxfiles/ -maxdepth 1 | grep -i $OS_ID)"
 
-  [ -z "$patfile" ] && patfile="$(find /home/tc/html/ | grep -i $OS_ID)"
+  [ -z "$patfile" ] && patfile="$(find /home/tc/html/ -maxdepth 1 | grep -i $OS_ID)"
 
   if [ ! -z "$patfile" ] && [ -f "$patfile" ]; then
     iscached="yes"
-    echo "PATFILE for ${MODEL}_${VERSION} is CACHED as file ${patfile}" >>${BUILDLOG}
+    echo "PATFILE for ${MODEL}_${VERSION} is CACHED as file ${patfile}" >>$BUILDLOG
     status "setstatus" "iscached" "true" "Patfile $patfile is cached"
   else
     iscached="no"
-    echo "PATFILE for ${MODEL}_${VERSION} is NOT CACHED" >>${BUILDLOG}
+    echo "PATFILE for ${MODEL}_${VERSION} is NOT CACHED" >>$BUILDLOG
     status "setstatus" "iscached" "false" "Patfile not cached"
   fi
 
@@ -1276,7 +1487,7 @@ function getvars() {
   tcrppart="$(mount | grep -i optional | grep cde | awk -F / '{print $3}' | uniq | cut -c 1-3)3"
   loaderdisk=$(mount | grep -i optional | grep cde | awk -F / '{print $3}' | uniq | cut -c 1-3)
   local_cache="/mnt/${tcrppart}/auxfiles"
-  GETTIME=$(curl -v --silent https://google.com/ 2>&1 | grep Date | sed -e 's/< Date: //')
+  GETTIME=$(curl -v --insecure --silent https://google.com/ 2>&1 | grep Date | sed -e 's/< Date: //')
   INTERNETDATE=$(date +"%d%m%Y" -d "$GETTIME")
   LOCALDATE=$(date +"%d%m%Y")
 
@@ -1292,10 +1503,9 @@ function getvars() {
   RD_COMPRESSED=$(cat ${CONFIGFILES}/$MODEL/$VERSION/config.json | jq -r -e ' .extra .compress_rd')
   productid=$(cat $USERCONFIGFILE | jq -r -e ' .extra_cmdline .pid')
   vendorid=$(cat $USERCONFIGFILE | jq -r -e ' .extra_cmdline .vid')
-  redpillmake=$(cat $USERCONFIGFILE | jq -r -e ' .general .redpillmake')
 
   FILENAME="${OS_ID}.pat"
-  realmac=$(ifconfig eth0 | head -1 | awk '{print $NF}' | sed -s 's/://g')
+  realmac=$(ifconfig eth0 | head -1 | awk '{print $NF}' | sed -e 's/://g')
   genmac="$(generateMacAddress $MODEL | sed -e "s/://g")"
 
   mount ${tcrppart}
@@ -1312,7 +1522,7 @@ function getvars() {
   [ -z "$VERSION" ] && VERSION="$(jq -r -e '.general .version' $USERCONFIGFILE)"
   [ -z "$serial" ] && serial="$(jq -r -e '.extra_cmdline .sn' $USERCONFIGFILE)"
   [ -z "$macaddress" ] && macaddress="$(jq -r -e '.extra_cmdline .mac1' $USERCONFIGFILE)"
-
+  [ -z "$redpillmake" ] && redpillmake="$(jq -r -e ' .general .redpillmake' $USERCONFIGFILE)"
 }
 
 function checkextractor() {
@@ -1327,12 +1537,16 @@ function checkextractor() {
 
 function downloadextractor() {
 
+  status "setstatus" "patextraction" "warn" "Extractor not cached, downloading OLD PAT"
+
   mkdir -p ${PATCHEXTRACTOR}/
 
   cd ${PATCHEXTRACTOR}/
 
   curl --insecure --location https://global.download.synology.com/download/DSM/release/7.0.1/42218/DSM_DS3622xs%2B_42218.pat --output ${HOMEPATH}/oldpat.tar.gz
   #[ -f ${HOMEPATH}/oldpat.tar.gz ] && tar -C${temp_folder} -xf ${HOMEPATH}/oldpat.tar.gz rd.gz
+
+  status "setstatus" "patextraction" "warn" "OLD PAT downloaded, extracting"
 
   tar xvf ../oldpat.tar.gz hda1.tgz
   tar xf hda1.tgz usr/lib
@@ -1370,19 +1584,25 @@ function downloadextractor() {
 
   cp -r usr/syno/sbin/synoarchive ${PATCHEXTRACTOR}/
 
+  status "setstatus" "patextraction" "warn" "Extractor in place, removing unneeded temp files"
+
   sudo rm -rf usr
   sudo rm -rf ../oldpat.tar.gz
   sudo rm -rf hda1.tgz
 
-  curl --silent --location "https://github.com/pocopico/tinycore-redpill/blob/main/tools/xxd?raw=true" --output xxd
+  status "setstatus" "patextraction" "warn" "Patching extraction binaries"
+
+  curl --insecure --silent --location "https://github.com/pocopico/tinycore-redpill/blob/main/tools/xxd?raw=true" --output xxd
 
   chmod +x xxd
 
-  ./xxd synoarchive | sed -s 's/000039f0: 0300/000039f0: 0100/' | ./xxd -r >synoarchive.nano
-  ./xxd synoarchive | sed -s 's/000039f0: 0300/000039f0: 0a00/' | ./xxd -r >synoarchive.smallpatch
-  ./xxd synoarchive | sed -s 's/000039f0: 0300/000039f0: 0000/' | ./xxd -r >synoarchive.system
+  ./xxd synoarchive | sed -e 's/000039f0: 0300/000039f0: 0100/' | ./xxd -r >synoarchive.nano
+  ./xxd synoarchive | sed -e 's/000039f0: 0300/000039f0: 0a00/' | ./xxd -r >synoarchive.smallpatch
+  ./xxd synoarchive | sed -e 's/000039f0: 0300/000039f0: 0000/' | ./xxd -r >synoarchive.system
 
   chmod +x synoarchive.*
+
+  status "setstatus" "patextraction" "warn" "Caching extractor for future use"
 
   [ ! -d /mnt/${tcrppart}/auxfiles/patch-extractor ] && mkdir -p /mnt/${tcrppart}/auxfiles/patch-extractor
 
@@ -1390,13 +1610,13 @@ function downloadextractor() {
   cp -rf ${PATCHEXTRACTOR}/synoarchive.* /mnt/${tcrppart}/auxfiles/patch-extractor/
 
   ## get list of available pat versions from
-  #curl --silent https://archive.synology.com/download/Os/DSM/ | grep "/download/Os/DSM/7" | awk '{print $2}' | awk -F\/ '{print $5}' | sed -s 's/"//g'
+  #curl --silent https://archive.synology.com/download/Os/DSM/ | grep "/download/Os/DSM/7" | awk '{print $2}' | awk -F\/ '{print $5}' | sed -e 's/"//g'
   ## Get the selected update pats for your platform/version
   #curl --silent https://archive.synology.com/download/Os/DSM/7.1-42661-3 | grep href | grep apollolake | awk '{print $2}'
   ## Select URL
   #curl --silent https://archive.synology.com/download/Os/DSM/7.1-42661-2 | grep href | grep apollolake | awk '{print $2}' | awk -F= '{print $2}'
   ## URL
-  #url=$(curl --silent https://archive.synology.com/download/Os/DSM/7.1-42661-3 | grep href | grep geminilake | awk '{print $2}' | awk -F= '{print $2}' | sed -s 's/"//g')
+  #url=$(curl --silent https://archive.synology.com/download/Os/DSM/7.1-42661-3 | grep href | grep geminilake | awk '{print $2}' | awk -F= '{print $2}' | sed -e 's/"//g')
 
   #curl --location $url -O
 
@@ -1405,9 +1625,9 @@ function downloadextractor() {
   mkdir -p temp && cd temp
 
   if [ -d /mnt/${tcrppart}/auxfiles/patch-extractor ] && [ -f /mnt/${tcrppart}/auxfiles/patch-extractor/synoarchive.nano ]; then
-    LD_LIBRARY_PATH=/mnt/${tcrppart}/auxfiles/patch-extractor/lib /mnt/${tcrppart}/auxfiles/patch-extractor/synoarchive.nano -xvf ${PATCHEXTRACTOR}/$patfile
+    status "setstatus" "patextraction" "warn" "Extracting pat file : ${PATCHEXTRACTOR}/$patfile" && LD_LIBRARY_PATH=/mnt/${tcrppart}/auxfiles/patch-extractor/lib /mnt/${tcrppart}/auxfiles/patch-extractor/synoarchive.nano -xvf ${PATCHEXTRACTOR}/$patfile
   else
-    wecho "Extractor not found"
+    wecho "Extractor not found" && status "setstatus" "patextraction" "warn" "Extractor not found"
   fi
   ## Extract ramdisk
 
@@ -1423,8 +1643,8 @@ function downloadextractor() {
 
 function getstaticmodule() {
 
-  #SYNOMODEL="$(echo $MODEL | sed -s 's/+/p/g' | tr '[:upper:]' '[:lower:]')_${REVISION}"
-  SYNOMODEL="$(echo $OS_ID | sed -s 's/+/p/g' | tr '[:upper:]' '[:lower:]')"
+  #SYNOMODEL="$(echo $MODEL | sed -e 's/+/p/g' | tr '[:upper:]' '[:lower:]')_${REVISION}"
+  SYNOMODEL="$(echo $OS_ID | sed -e 's/+/p/g' | tr '[:upper:]' '[:lower:]')"
 
   cd ${HOMEPATH}
 
@@ -1450,7 +1670,7 @@ function getstaticmodule() {
     fi
   done
 
-  if [ -f ${HOMEPATH}/redpill.ko ] && [ -n $(strings ${HOMEPATH}/redpill.ko | grep -i $MODEL) ]; then
+  if [ -f ${HOMEPATH}/redpill.ko ] && [ -n $(strings ${HOMEPATH}/redpill.ko | grep -i $MODEL | head -1) ]; then
     wecho "Copying redpill.ko module to ramdisk"
     cp ${HOMEPATH}/redpill.ko ${TEMPPAT}/rd.temp/usr/lib/modules/rp.ko
   else
@@ -1559,7 +1779,7 @@ function downloadtools() {
   [ ! -d ${HOMEPATH}/tools ] && mkdir -p ${HOMEPATH}/tools
   cd ${HOMEPATH}/tools
   for FILE in $TOOLS; do
-    [ ! -f ${HOMEPATH}/tools/$FILE ] && curl --silent --insecure --location "$TOOLSPATH/${FILE}" -O
+    [ ! -f ${HOMEPATH}/tools/$FILE ] && curl --insecure --silent --insecure --location "$TOOLSPATH/${FILE}" -O
     chmod +x $FILE
   done
 
@@ -1574,14 +1794,14 @@ function extractpat() {
   mkdir -p $TEMPPAT
 
   if [ "$isencrypted" = "yes" ]; then
-    checkextractor && [ "$extractorcached" = "yes" ] && wecho "Extractor Cached, proceeding..."
+    checkextractor && [ "$extractorcached" = "yes" ] && wecho "Extractor Cached, proceeding..." && status "setstatus" "patextraction" "warn" "Extractor cached"
     wecho "Extracting encrypted PAT file $FILENAME"
     status "setstatus" "patextraction" "false" "Extracting encrypted PAT file $FILENAME"
     [ ! -d ${TEMPPAT} ] && mkdir -p ${TEMPPAT}
 
     LD_LIBRARY_PATH=/mnt/${tcrppart}/auxfiles/patch-extractor/lib /mnt/${tcrppart}/auxfiles/patch-extractor/synoarchive.system -C ${TEMPPAT} -xf $FILENAME
   else
-    wecho "Extracting unencrypted PAT file $FILENAME to $TEMPPAT"
+    wecho "Extracting unencrypted PAT file ${FILENAME} to ${TEMPPAT}"
     status "setstatus" "patextraction" "false" "Extracting unencrypted PAT file $FILENAME to $TEMPPAT"
     tar xf $FILENAME -C ${TEMPPAT} && status "setstatus" "patextraction" "false" "File $FILENAME extracted to $TEMPPAT"
   fi
@@ -1610,6 +1830,7 @@ function patchkernel() {
 function cachepat() {
 
   echo "Caching PAT file"
+  mkdir -p /mnt/$tcrppart/auxfiles/
   status "setstatus" "cachingpat" "false" "Caching PAT file"
   cd ${TEMPPAT}
   rm -rf rd.temp && rm -rf vmlinux* && rm -rf zImage-dsm && rm -rf initrd-dsm && status "setstatus" "cachingpat" "false" "Removing temp files from ${TEMPPAT}"
@@ -1627,10 +1848,18 @@ function cleanbuild() {
   status "setstatus" "cleanbuild" "true" "Removing /home/tc/custom.gz" && rm -rf /home/tc/custom.gz
   status "setstatus" "cleanbuild" "true" "Removing /home/tc/customtemp" && rm -rf /home/tc/customtemp
   status "setstatus" "cleanbuild" "true" "Removing ${TEMPPAT}" && rm -rf ${TEMPPAT}
-  status "setstatus" "cleanbuild" "true" "Removing ${HOMEPATH}/html/*.pat" && rm -rf ${HOMEPATH}/html/*.pat
+  status "setstatus" "cleanbuild" "true" "Removing ${HOMEPATH}/html/*.pat" && mv -f ${HOMEPATH}/html/*.pat /tmp/ && rm -rf ${HOMEPATH}/html/*.pat
   status "setstatus" "cleanbuild" "true" "Removing ${HOMEPATH}/friend" && rm -rf ${HOMEPATH}/friend
 
   status "setstatus" "cleanbuild" "true" "Build directory cleaned"
+
+}
+
+function createdownloadlinks() {
+
+  ln -sf /tmp/${BUILDMODEL}_${BUILDVERSION}.pat ${HOMEPATH}/html/backupfiles/${BUILDMODEL}_${BUILDVERSION}.pat
+  ln -sf ${HOMEPATH}/user_config.json ${HOMEPATH}/html/backupfiles/user_config.json
+  ln -sf /mnt/$tcrppart/auxfiles/${BUILDMODEL}_${BUILDVERSION}.pat ${HOMEPATH}/html/backupfiles/${BUILDMODEL}_${BUILDVERSION}.pat-unenc
 
 }
 
@@ -1643,7 +1872,7 @@ function addextensions() {
   # extadd URL PLATFORM
   BUILDMODEL="$(echo $MODEL | tr '[:upper:]' '[:lower:]' | sed -e "s/+/p/g")"
   platform_selected="$(jq -s '.[0].build_configs=(.[1].build_configs + .[0].build_configs | unique_by(.id)) | .[0]' $CUSTOMCONFIG | jq ".build_configs[] | select(.id==\"${BUILDMODEL}-${VERSION}\")")"
-  EXTENSIONS="$(echo $platform_selected | jq -r -e '.add_extensions[]' | grep json | awk -F: '{print $1}' | sed -s 's/"//g')"
+  EXTENSIONS="$(echo $platform_selected | jq -r -e '.add_extensions[]' | grep json | awk -F: '{print $1}' | sed -e 's/"//g')"
   EXTENSIONS_SOURCE_URL="$(echo $platform_selected | jq -r -e '.add_extensions[]' | grep json | awk '{print $2}' | sed -e 's/,//g' -e 's/"//g')"
   BUILDVERSION="$(echo $VERSION | awk -F- '{print $2}')"
 
@@ -1659,8 +1888,10 @@ function addextensions() {
     $HOMEPATH/include/extmgr.sh extadd $EXT "${BUILDMODEL}_${BUILDVERSION}"
 
   done
-  status "setstatus" "extadd" "false" "Auto detecting required extensions"
-  $HOMEPATH/include/listmodules.sh "${BUILDMODEL}_${BUILDVERSION}"
+
+  # DISABLE AUTO ADDING EXTENSIONS
+  #status "setstatus" "extadd" "false" "Auto detecting required extensions"
+  #$HOMEPATH/include/listmodules.sh "${BUILDMODEL}_${BUILDVERSION}"
 
   status "setstatus" "extadd" "false" "Processing extensions"
   wecho "Processing extensions"
@@ -1681,7 +1912,7 @@ function patchramdisk() {
   [ ! -d $temprd ] && mkdir -p $temprd && cd $temprd && xz -dc <"${TEMPPAT}/rd.gz" | cpio -idm >/dev/null 2>&1
   [ -f ${TEMPPAT}/rd.temp/VERSION ] && ${TEMPPAT}/rd.temp/VERSION
   wecho "Extracted ramdisk VERSION : ${major}.${minor}.${micro}_${buildnumber}"
-  PATCHES="$(echo $RAMDISK_PATCH | jq . | sed -s 's/@@@COMMON@@@/\/home\/tc\/config\/_common/' | grep config | sed -s 's/"//g' | sed -s 's/,//g')"
+  PATCHES="$(echo $RAMDISK_PATCH | jq . | sed -e 's/@@@COMMON@@@/\/home\/tc\/config\/_common/' | grep config | sed -e 's/"//g' | sed -e 's/,//g')"
 
   wecho "Patches to be applied : $PATCHES"
 
@@ -1696,16 +1927,58 @@ function patchramdisk() {
 
   while IFS=":" read KEY VALUE; do
     echo "Key :$KEY Value: $VALUE"
-    _set_conf_kv $KEY $VALUE $temprd/etc/synoinfo.conf
-  done <<<$(echo $SYNOINFO_PATCH | jq . | grep ":" | sed -s 's/"//g' | sed -s 's/,//g')
+    KEY="$(echo $KEY | xargs)" && VALUE="$(echo $VALUE | xargs)"
+    _set_conf_kv "$KEY" "$VALUE" $temprd/etc/synoinfo.conf
+  done <<<$(echo $SYNOINFO_PATCH | jq . | grep ":" | sed -e 's/"//g' | sed -e 's/,//g')
+
+  echo "Checking synoinfo.conf for config values we've set"
+  for key in $(echo $SYNOINFO_PATCH | jq -re '. | keys_unsorted' | sed -e 's/\[//g' -e 's/\]//g' -e 's/"//g' -e 's/,//g'); do
+    [ $(grep $key ${temprd}/etc/synoinfo.conf | wc -l) -le 0 ] && echo "Key $key : not found in synoinfo.conf" || echo "Key $key : OK "
+  done
 
   wecho "Applying user synoinfo settings"
   status "setstatus" "ramdiskpatch" "false" "Applying user synoinfo settings"
 
   while IFS=":" read KEY VALUE; do
     echo "Key :$KEY Value: $VALUE"
-    _set_conf_kv $KEY $VALUE $temprd/etc/synoinfo.conf
-  done <<<$(echo $SYNOINFO_USER | jq . | grep ":" | sed -s 's/"//g' | sed -s 's/,//g')
+    KEY="$(echo $KEY | xargs)" && VALUE="$(echo $VALUE | xargs)"
+    _set_conf_kv "$KEY" "$VALUE" $temprd/etc/synoinfo.conf
+  done <<<$(echo $SYNOINFO_USER | jq . | grep ":" | sed -e 's/"//g' | sed -e 's/,//g')
+
+  echo "Checking synoinfo.conf for user_config.json values we've set"
+  for key in $(echo $SYNOINFO_USER | jq -re '. | keys_unsorted' | sed -e 's/\[//g' -e 's/\]//g' -e 's/"//g' -e 's/,//g'); do
+    [ $(grep $key ${temprd}/etc/synoinfo.conf | wc -l) -le 0 ] && echo "Key $key : not found in synoinfo.conf" || echo "Key $key : OK "
+  done
+
+  wecho "Patching sbin/init.post"
+  status "setstatus" "ramdiskpatch" "false" "Patching init.post"
+  grep -v -e '^[\t ]*#' -e '^$' "${HOMEPATH}/html/patch/config-manipulators.sh" >"${HOMEPATH}/rp.txt"
+  sed -e "/@@@CONFIG-MANIPULATORS-TOOLS@@@/ {" -e "r ${HOMEPATH}/rp.txt" -e 'd' -e '}' -i "${temprd}/sbin/init.post"
+  rm "${HOMEPATH}/rp.txt"
+  touch "${HOMEPATH}/rp.txt"
+
+  echo "Applying model synoinfo patches"
+
+  while IFS=":" read KEY VALUE; do
+    echo "Key : $KEY Value: $VALUE"
+    KEY="$(echo $KEY | xargs)" && VALUE="$(echo $VALUE | xargs)"
+    _set_conf_kv "${KEY}" "${VALUE}" $temprd/etc/synoinfo.conf
+    echo "_set_conf_kv \"${KEY}\" \"${VALUE}\" /tmpRoot/etc/synoinfo.conf" >>"${HOMEPATH}/rp.txt"
+    echo "_set_conf_kv \"${KEY}\" \"${VALUE}\" /tmpRoot/etc.defaults/synoinfo.conf" >>"${HOMEPATH}/rp.txt"
+  done <<<$(echo $SYNOINFO_PATCH | jq . | grep ":" | sed -e 's/"//g' | sed -e 's/,//g')
+
+  echo "Applying user synoinfo settings"
+
+  while IFS=":" read KEY VALUE; do
+    echo "Key : $KEY Value: $VALUE"
+    KEY="$(echo $KEY | xargs)" && VALUE="$(echo $VALUE | xargs)"
+    _set_conf_kv "${KEY}" "${VALUE}" $temprd/etc/synoinfo.conf
+    echo "_set_conf_kv \"${KEY}\" \"${VALUE}\" /tmpRoot/etc/synoinfo.conf" >>"${HOMEPATH}/rp.txt"
+    echo "_set_conf_kv \"${KEY}\" \"${VALUE}\" /tmpRoot/etc.defaults/synoinfo.conf" >>"${HOMEPATH}/rp.txt"
+  done <<<$(echo $SYNOINFO_USER | jq . | grep ":" | sed -e 's/"//g' | sed -e 's/,//g')
+
+  sed -e "/@@@CONFIG-GENERATED@@@/ {" -e "r ${HOMEPATH}/rp.txt" -e 'd' -e '}' -i "${temprd}/sbin/init.post"
+  rm ${HOMEPATH}/rp.txt
 
   wecho "Copying extra ramdisk files "
   status "setstatus" "ramdiskpatch" "false" "Copying extra ramdisk files"
@@ -1714,7 +1987,7 @@ function patchramdisk() {
     echo "Source :$SRC Destination : $DST"
     cp -f $SRC $DST
     cmp -s $SRC $DST || echo "File $SRC differ to $DST" && echo "FILE : $SRC copied to : $DST succesfully"
-  done <<<$(echo $RAMDISK_COPY | jq . | grep "COMMON" | sed -s 's/"//g' | sed -s 's/,//g' | sed -s 's/@@@COMMON@@@/\/home\/tc\/config\/_common/')
+  done <<<$(echo $RAMDISK_COPY | jq . | grep "COMMON" | sed -e 's/"//g' | sed -e 's/,//g' | sed -e 's/@@@COMMON@@@/\/home\/tc\/config\/_common/')
 
   #wecho "Adding precompiled redpill module"
   #getstaticmodule
@@ -1738,9 +2011,11 @@ function patchramdisk() {
 
   wecho "Copying file to ${tcrppart}"
 
+  mount /dev/${loaderdisk}1 && [ -f /mnt/${loaderdisk}1/custom.gz ] && wecho "Found old custom.gz, moving it to old" && mv -f /mnt/${tcrpdisk}1/custom.gz /mnt/${tcrpdisk}1/custom.gz.old && umount /dev/${loaderdisk}1
+
   status "setstatus" "copyfilestodisk" "false" "Copying all files to disk"
   status "setstatus" "copyfilestodisk" "false" "Copying  $HOMEPATH/custom.gz to /mnt/${tcrppart}/" && cp -f $HOMEPATH/custom.gz /mnt/${tcrppart}/ && status "setstatus" "copyfilestodisk" "false" "Copied $HOMEPATH/custom.gz to /mnt/${tcrppart}/"
-  status "setstatus" "copyfilestodisk" "false" "Copying  $HOMEPATH/custom.gz to /mnt/${loaderdisk}1/ " && cp -f $HOMEPATH/custom.gz /mnt/${loaderdisk}1/ && status "setstatus" "copyfilestodisk" "false" "Copied $HOMEPATH/custom.gz to /mnt/${loaderdisk}1/"
+  #status "setstatus" "copyfilestodisk" "false" "Copying  $HOMEPATH/custom.gz to /mnt/${loaderdisk}1/ " && cp -f $HOMEPATH/custom.gz /mnt/${loaderdisk}1/ && status "setstatus" "copyfilestodisk" "false" "Copied $HOMEPATH/custom.gz to /mnt/${loaderdisk}1/"
   status "setstatus" "copyfilestodisk" "false" "Copying  ${TEMPPAT}/zImage-dsm to /mnt/${tcrppart}/" && cp -f ${TEMPPAT}/zImage-dsm /mnt/${tcrppart}/ && status "setstatus" "copyfilestodisk" "false" "Copied ${TEMPPAT}/zImage-dsm to /mnt/${tcrppart}/"
   status "setstatus" "copyfilestodisk" "false" "Copying  ${TEMPPAT}/initrd-dsm to /mnt/${tcrppart}/" && cp -f ${TEMPPAT}/initrd-dsm /mnt/${tcrppart}/ && status "setstatus" "copyfilestodisk" "false" "Copied ${TEMPPAT}/initrd-dsm to /mnt/${tcrppart}/"
   status "setstatus" "copyfilestodisk" "true" "Copied all boot files to the loader disk"
@@ -1969,8 +2244,15 @@ function build() {
   getvars
 
   wecho "Starting build"
-  wecho "Buildling loader for $MODEL, $VERSION, with serial number : $serial and macaddress : $macaddress"
-  wecho "extracommans : $extracmdline"
+  wecho "Building loader for $MODEL, $VERSION, with serial number : $serial and macaddress : $macaddress"
+  wecho "Redpill Make $redpillmake, SataPortMap: $sataportmap, DiskIdxMap: $diskidxmap, StaticBoot: $staticboot"
+  wecho "extracommands : $extracmdline"
+
+  #wecho "Updating user_config with serial : $serial and macaddress : $macaddress"
+  updateuserconfigfield "extra_cmdline" "sn" "$serial"
+  updateuserconfigfield "extra_cmdline" "mac1" "$macaddress"
+  # Update the redpillmake
+  updateuserconfigfield "general" "redpillmake" "$redpillmake"
 
   rm -rf ${HOMEPATH}/temppat
 
@@ -1983,20 +2265,20 @@ function build() {
   extractpat "$patfile"
 
   if [ "$extractedzImagesha" = "$ZIMAGE_SHA" ]; then
-    wecho "Copying original zImage to partitions ${loaderdisk}1 and ${loaderdisk}2"
+    wecho "Copying original zImage to partitions ${loaderdisk}1 and ${loaderdisk}2" && status "setstatus" "kernelpatch" "warn" "Copying original zImage to partitions ${loaderdisk}1 and ${loaderdisk}2"
     cp -f ${TEMPPAT}/zImage /mnt/${loaderdisk}1/
     cp -f ${TEMPPAT}/zImage /mnt/${loaderdisk}2/
-    wecho "zImage sha256sum matches expected sha256sum, patching kernel"
+    wecho "zImage sha256sum matches expected sha256sum, patching kernel" && status "setstatus" "kernelpatch" "warn" "zImage sha256sum matches expected sha256sum, patching kernel"
     patchkernel
   else
     wecho "zImage does not match sha256sum : $extractedzImagesha"
   fi
 
   if [ "$extractedrdsha" = "$RD_SHA" ]; then
-    wecho "Copying original ramdisk to partitions ${loaderdisk}1 and ${loaderdisk}2"
+    wecho "Copying original ramdisk to partitions ${loaderdisk}1 and ${loaderdisk}2" && status "setstatus" "ramdiskpatch" "warn" "Copying original ramdisk to partitions ${loaderdisk}1 and ${loaderdisk}2"
     cp -f ${TEMPPAT}/rd.gz /mnt/${loaderdisk}1/
     cp -f ${TEMPPAT}/rd.gz /mnt/${loaderdisk}2/
-    wecho "ramdisk sha256sum matches expected sha256sum, patching kernel"
+    wecho "ramdisk sha256sum matches expected sha256sum, patching ramdisk" && status "setstatus" "ramdiskpatch" "warn" "ramdisk sha256sum matches expected sha256sum, patching ramdisk"
     patchramdisk
   else
     wecho "rd.gz  does not match sha256sum : $extractedrdsha"
@@ -2020,19 +2302,22 @@ function build() {
 
       fi
     fi
-  done <<<$(echo $extracmdline | sed -s 's/ /\n/g')
+  done <<<$(echo $extracmdline | sed -e 's/ /\n/g')
 
   #wecho "Clearing and testing $USERCONFIGFILE"
-  json="$(cat $USERCONFIGFILE | sed -s 's/\\r//g' | jq .)" && echo -E "${json}" | jq . >$USERCONFIGFILE
+  json="$(cat $USERCONFIGFILE | sed -e 's/\\r//g' | jq .)" && echo -E "${json}" | jq . >$USERCONFIGFILE
+
+  #updating user_config with build form data
+  echo "Updating $USERCONFIGFILE with build form data SataPortMap: $sataportmap DiskIdxMap: $diskidxmap StaticBoot: $staticboot" | tee -a $LOGFILE
+  updateuserconfigfield "extra_cmdline" "SataPortMap" "${sataportmap}"
+  updateuserconfigfield "extra_cmdline" "DiskIdxMap" "${diskidxmap}"
+  updateuserconfigfield "general" "staticboot" "${staticboot}"
 
   #wecho "Building CMD Line"
 
   USB_LINE=$(getcmdline ${CONFIGFILES}/$MODEL/$VERSION/config.json $USERCONFIGFILE 2>&1 | grep linux | head -1 | cut -c 16-999)
   SATA_LINE=$(getcmdline ${CONFIGFILES}/$MODEL/$VERSION/config.json $USERCONFIGFILE 2>&1 | grep linux | tail -1 | cut -c 16-999)
 
-  #wecho "Updating user_config with serial : $serial and macaddress : $macaddress"
-  updateuserconfigfield "extra_cmdline" "sn" "$serial"
-  updateuserconfigfield "extra_cmdline" "mac1" "$macaddress"
   updateuserconfigfield "general" "usb_line" "${USB_LINE}"
   updateuserconfigfield "general" "sata_line" "${SATA_LINE}"
 
@@ -2050,11 +2335,45 @@ function build() {
 
   cleanbuild
 
+  createdownloadlinks
+
   backuploader silent
+
+  setgrubentry
 
   echo "Finished building the loader. "
   status "setstatus" "finishloader" "true" "Finished building the loader at : $(date +"%A %b %Y Time: %H:%M:%S")"
   return
+
+}
+
+setgrubentry() {
+
+  status "setstatus" "setgrubentry" "warn" "Setting next grub entry"
+  echo "Setting next grub entry " | tee -a $LOGFILE
+
+  default="$(grep menuentry /mnt/${loaderdisk}1/boot/grub/grub.cfg | awk -F\' '{print $2}' | grep -i Friend)"
+  ISUSB="$(udevadm info --query property --name /dev/${loaderdisk} | grep -i DEVPATH | grep -i USB | wc -l)"
+
+  if [ "$staticboot" = "true " ] && [ "$ISUSB" = "1" ]; then
+    usbentry="$(grep menuentry /mnt/${loaderdisk}1/boot/grub/grub.cfg | awk -F\' '{print $2}' | grep -i USB)"
+    status "setstatus" "setgrubentry" "true" "Setting next grub entry to static USB : $usbentry"
+    echo "Setting next grub entry to static USB : $usbentry" | tee -a $LOGFILE
+    sudo /usr/local/bin/grub-editenv /mnt/${loaderdisk}1/boot/grub/grubenv set saved_entry="$usbentry"
+  elif [ "$staticboot" = "true " ] && [ "$ISUSB" = "0" ]; then
+    sataentry="$(grep menuentry /mnt/${loaderdisk}1/boot/grub/grub.cfg | awk -F\' '{print $2}' | grep -i SATA)"
+    status "setstatus" "setgrubentry" "true" "Setting next grub entry to static SATA : $sataentry"
+    echo "Setting next grub entry to static SATA : $sataentry" | tee -a $LOGFILE
+    sudo /usr/local/bin/grub-editenv /mnt/${loaderdisk}1/boot/grub/grubenv set saved_entry="$sataentry"
+  else
+    status "setstatus" "setgrubentry" "true" "Setting next grub entry to : $default"
+    echo "Setting next grub entry to Friend : $default" | tee -a $LOGFILE
+    sudo /usr/local/bin/grub-editenv /mnt/${loaderdisk}1/boot/grub/grubenv set saved_entry="$default"
+  fi
+
+  savedentry="$(sudo /usr/local/bin/grub-editenv /mnt/${loaderdisk}1/boot/grub/grubenv list | awk -F= '{print $2}')"
+  status "setstatus" "setgrubentry" "true" "Grub entry has been set to : $savedentry"
+  echo "Grub entry has been set to : $savedentry" | tee -a $LOGFILE
 
 }
 
@@ -2250,7 +2569,7 @@ function autoaddexts() {
   wecho "Automatically detecting the required extensions"
   BUILDMODEL="$(echo $MODEL | tr '[:upper:]' '[:lower:]' | sed -e "s/+/p/g")"
   platform_selected="$(jq -s '.[0].build_configs=(.[1].build_configs + .[0].build_configs | unique_by(.id)) | .[0]' $CUSTOMCONFIG | jq ".build_configs[] | select(.id==\"${BUILDMODEL}-${VERSION}\")")"
-  EXTENSIONS="$(echo $platform_selected | jq -r -e '.add_extensions[]' | grep json | awk -F: '{print $1}' | sed -s 's/"//g')"
+  EXTENSIONS="$(echo $platform_selected | jq -r -e '.add_extensions[]' | grep json | awk -F: '{print $1}' | sed -e 's/"//g')"
   EXTENSIONS_SOURCE_URL="$(echo $platform_selected | jq -r -e '.add_extensions[]' | grep json | awk '{print $2}' | sed -e 's/,//g' -e 's/"//g')"
   BUILDVERSION="$(echo $VERSION | awk -F- '{print $2}')"
 
@@ -2278,10 +2597,14 @@ EOF
 
   BUILDMODEL="$(echo $MODEL | tr '[:upper:]' '[:lower:]' | sed -e "s/+/p/g")"
   platform_selected="$(jq -s '.[0].build_configs=(.[1].build_configs + .[0].build_configs | unique_by(.id)) | .[0]' $CUSTOMCONFIG | jq ".build_configs[] | select(.id==\"${BUILDMODEL}-${VERSION}\")")"
-  EXTENSIONS="$(echo $platform_selected | jq -r -e '.add_extensions[]' | grep json | awk -F: '{print $1}' | sed -s 's/"//g')"
+  EXTENSIONS="$(echo $platform_selected | jq -r -e '.add_extensions[]' | grep json | awk -F: '{print $1}' | sed -e 's/"//g')"
   EXTENSIONS_SOURCE_URL="$(echo $platform_selected | jq -r -e '.add_extensions[]' | grep json | awk '{print $2}' | sed -e 's/,//g' -e 's/"//g')"
   BUILDVERSION="$(echo $VERSION | awk -F- '{print $2}')"
-  wecho "Please note that for MODEL ${BUILDMODEL}_${BUILDVERSION}, the following extensions are added automatically: $EXTENSIONS <br>"
+  if [ -z "$EXTENSIONS" ]; then
+    wecho "No auto included extensions found for MODEL ${BUILDMODEL}_${BUILDVERSION}, check ${CUSTOMCONFIG} for this model"
+  else
+    wecho "Please note that for MODEL ${BUILDMODEL}_${BUILDVERSION}, the following extensions are added automatically: $EXTENSIONS <br>"
+  fi
 
   for exturl in $EXTENSIONS_SOURCE_URL; do
 
@@ -2301,6 +2624,7 @@ EOF
       cat /home/tc/payload/$ext/*json | jq -r -e '. | .id,.url ' | paste -d " " - - | sort | uniq
     done
   )"
+
   [ ! -f $extensionfile ] && curl --insecure -sL $extensionrepofile -O
   extensionlist="$(cat $extensionfile | jq -r -e '. | .id,.url ' | paste -d " " - - | sort | uniq)"
 
@@ -2362,7 +2686,11 @@ function latestscript() {
   cursha256sum="$(sha256sum /home/tc/html/index.sh | awk '{print $1}')"
 
   rm -f /tmp/index.sh
-  if [ "$curversion" != "$repoversion" ] || [ "$reposha256sum" != "$cursha256sum" ]; then
+
+  if
+    [ "$curversion" != "$repoversion" ] || [ "$reposha256sum" != "$cursha256sum" ] && [ echo $(($(echo $repoversion | sed -e 's/\.//g' | sed -r 's/0*([0-9]*)/\1/') - $(echo $curversion | sed -e 's/\.//g' | sed -r 's/0*([0-9]*)/\1/')))
+    -gt 0 ]
+  then
     wecho "Current version : $curversion, new version available $repoversion, please update"
     echo "<a href=\"${THISURL}?action=updatescript\" class=\"btn btn-primary btn-lg active\" role=\"button\" aria-pressed=\"true\">UPDATE</a>"
   fi
@@ -2394,7 +2722,7 @@ function fullupgrade() {
   echo "Backuping up current files to /mnt/$tcrppart/backup/loaderbackup-${backupdate}.tgz"
   tar cfz /mnt/$tcrppart/backup/loaderbackup-${backupdate}.tgz /home/tc 2>&1 >/dev/null
   git --git-dir=/dev/null clone --depth=1 $rploadergit
-  cd /home/tc/tinycore-redpill && sudo cp -frp * /home/tc && cd /home/tc
+  cd /home/tc/tinycore-redpill && cp -frp * /home/tc && cd /home/tc
   rm -rf tinycore-redpill
   find /home/tc -type f -name "*.sh" -exec chmod +x {} \;
   find /home/tc/tools -type f -exec chmod +x {} \;
@@ -2409,11 +2737,42 @@ function buildstatus() {
 
 }
 
+checkuserconfig() {
+
+  retries=0
+  MODEL="$1"
+  VERSION="$2"
+
+  if [ $(jq . $USERCONFIGFILE | wc -l) -ge 38 ]; then
+    echo "File $USERCONFIGFILE looks OK" >>${BUILDLOG}
+  else
+    if [ -n "$MODEL " ] && [ -n "$VERSION " ]; then
+      wecho "Error, $USERCONFIGFILE looks corrupted, trying to fix it"
+      cp -f ${HOMEPATH}/include/user_config.json $USERCONFIGFILE
+      while [ "$testmodel" != "$MODEL" ] && [ "$testversion" != "$VERSION" ] && [ $retries -le 5 ]; do
+        updateuserconfigfield "general" "model" "$MODEL"
+        updateuserconfigfield "general" "version" "$VERSION"
+        testmodel="$(jq .general.model $USERCONFIGFILE | sed -e 's/"//g')"
+        testversion="$(jq .general.model $USERCONFIGFILE | sed -e 's/"//g')"
+        echo "$MODEL , $VERSION, retries=$retries"
+        let retries=$retries+1
+        wecho "Retrying $retries"
+      done
+      [ "$testmodel" != "$MODEL" ] && [ "$testversion" != "$VERSION" ] && pagefooter && exit 99
+    else
+      wecho "Error both $USERCONFIGFILE file looks corrupted, select Additional Actions -> Reset model to recreate"
+    fi
+    pagefooter
+    exit 99
+  fi
+
+}
+
 function readlog() {
 
   cat <<EOF
 <div class="buildlog fixed-bottom pre-scrollable bg-dark" id="buildlog">
-<h3>Build output log</h3>
+<h3 class="fixed">Build output log<button id="hideoutputlog" class="btn btn-lg btn-success btn-right hideoutputlog" onclick="return hidebuildlog()">Hide build log</button><a id="downloadlog" href="buildlog.txt" class="btn btn-lg btn-success btn-right downloadlog">Download log</a></h3>
 <pre id="buildlogtab"></pre>
 
 </div>
@@ -2455,46 +2814,50 @@ else
   #echo "<br>INITIAL PAGE, REQUEST : $REQUEST_METHOD"
 
   if [ "$REQUEST_METHOD" = "GET" ]; then
-    MODEL="$(echo ${get[mymodel]} | sed -s "s/'//g")"
-    VERSION="$(echo ${get[myversion]} | sed -s "s/'//g")"
-    action="$(echo "${get[action]}" | sed -s "s/'//g")"
+    MODEL="$(echo ${get[mymodel]} | sed -e "s/'//g")"
+    VERSION="$(echo ${get[myversion]} | sed -e "s/'//g")"
+    action="$(echo "${get[action]}" | sed -e "s/'//g")"
   elif [ "$REQUEST_METHOD" = "POST" ]; then
-    if [ -z "$(echo ${post[mymodel]} | sed -s "s/'//g")" ]; then
-      MODEL="$(echo "${get[mymodel]}" | sed -s "s/'//g")"
+    if [ -z "$(echo ${post[mymodel]} | sed -e "s/'//g")" ]; then
+      MODEL="$(echo "${get[mymodel]}" | sed -e "s/'//g")"
     else
-      MODEL="$(echo "${post[mymodel]}" | sed -s "s/'//g")"
+      MODEL="$(echo "${post[mymodel]}" | sed -e "s/'//g")"
     fi
-    VERSION="$(echo "${post[myversion]}" | sed -s "s/'//g")"
+    VERSION="$(echo "${post[myversion]}" | sed -e "s/'//g")"
     REVISION="$(echo "${VERSION}" | awk -F- '{print $2}')"
-    serial="$(echo "${post[serial]}" | sed -s "s/'//g")"
-    macaddress="$(echo "${post[macaddress]}" | sed -s "s/'//g")"
-    if [ -z "$(echo ${post[action]} | sed -s "s/'//g")" ]; then
-      action="$(echo "${get[action]}" | sed -s "s/'//g")"
+    serial="$(echo "${post[serial]}" | sed -e "s/'//g")"
+    macaddress="$(echo "${post[macaddress]}" | sed -e "s/'//g")"
+    staticboot="$(echo "${post[staticboot]}" | sed -e "s/'//g")"
+    sataportmap="$(echo "${post[sataportmap]}" | sed -e "s/'//g")"
+    diskidxmap="$(echo "${post[diskidxmap]}" | sed -e "s/'//g")"
+    redpillmake="$(echo "${post[redpillmake]}" | sed -e "s/'//g")"
+    if [ -z "$(echo ${post[action]} | sed -e "s/'//g")" ]; then
+      action="$(echo "${get[action]}" | sed -e "s/'//g")"
     else
-      action="$(echo "${post[action]}" | sed -s "s/'//g")"
+      action="$(echo "${post[action]}" | sed -e "s/'//g")"
     fi
-    #action="$(echo "${post[action]}" | sed -s "s/'//g")"
+    #action="$(echo "${post[action]}" | sed -e "s/'//g")"
     extracmdline="$(
-      echo "${post[extracmdline]}" | sed -s "s/'//g" | sed -s 's/ /\n/g' | sed -s 's/%3D/=/g'
+      echo "${post[extracmdline]}" | sed -e "s/'//g" | sed -e 's/ /\n/g' | sed -e 's/%3D/=/g'
     )"
-    buildit="$(echo "${post[buildit]}" | sed -s "s/'//g")"
+    buildit="$(echo "${post[buildit]}" | sed -e "s/'//g")"
     if [ "$action" == "extadd" ]; then
-      exturl="$(echo "${post[exturl]}" | sed -s "s/'//g")"
+      exturl="$(echo "${post[exturl]}" | sed -e "s/'//g")"
     fi
     if [ "$action" == "staticipset" ]; then
-      ipset="$(echo "${post[ipset]}" | sed -s "s/'//g")"
-      ipaddr="$(echo "${post[ipaddr]}" | sed -s "s/'//g")"
-      ipgw="$(echo "${post[ipgw]}" | sed -s "s/'//g")"
-      ipdns="$(echo "${post[ipdns]}" | sed -s "s/'//g")"
-      ipproxy="$(echo "${post[ipproxy]}" | sed -s "s/'//g")"
+      ipset="$(echo "${post[ipset]}" | sed -e "s/'//g")"
+      ipaddr="$(echo "${post[ipaddr]}" | sed -e "s/'//g")"
+      ipgw="$(echo "${post[ipgw]}" | sed -e "s/'//g")"
+      ipdns="$(echo "${post[ipdns]}" | sed -e "s/'//g")"
+      ipproxy="$(echo "${post[ipproxy]}" | sed -e "s/'//g")"
     fi
     if [ "$action" == "mountshare" ]; then
-      share="$(echo "${post[share]}" | sed -s "s/'//g")"
-      mountpoint="$(echo "${post[mountpoint]}" | sed -s "s/'//g")"
-      cifsuser="$(echo "${post[cifsuser]}" | sed -s "s/'//g")"
-      cifspass="$(echo "${post[cifspass]}" | sed -s "s/'//g")"
-      enccifsuser="$(printf %s "${post[cifsuser]}" | jq -sRr @uri | sed -s "s/'//g")"
-      enccifspass="$(printf %s "${post[cifspass]}" | jq -sRr @uri | sed -s "s/'//g")"
+      share="$(echo "${post[share]}" | sed -e "s/'//g")"
+      mountpoint="$(echo "${post[mountpoint]}" | sed -e "s/'//g")"
+      cifsuser="$(echo "${post[cifsuser]}" | sed -e "s/'//g")"
+      cifspass="$(echo "${post[cifspass]}" | sed -e "s/'//g")"
+      enccifsuser="$(printf %s "${post[cifsuser]}" | jq -sRr @uri | sed -e "s/'//g")"
+      enccifspass="$(printf %s "${post[cifspass]}" | jq -sRr @uri | sed -e "s/'//g")"
     fi
 
   fi
@@ -2503,9 +2866,10 @@ else
   #echo "<br>REQUEST METHOD $REQUEST_METHOD , MODEL : $MODEL , VERSION : $VERSION"
   #echo "<br>Serial : $serial , MAC : $macaddress , Buildit : $buildit"
   #echo "<br>Build VARS : MODEL :$MODEL VERSION: $VERSION SN: $serial MAC: $macaddress BUILDIT: $buildit"
+  #echo "<br>Build VARS : sataportmap :$sataportmap diskidxmap: $diskidxmap RepillMake: $redpillmake Static Boot: $staticboot "
 
   [ "$action" == "backuploader" ] && result=$(backuploader) && recho "$result" | tee -a ${BUILDLOG}
-  [ "$action" == "listplatforms" ] && result=$(listplatforms) && wecho "$result" | tee -a buildlog.log
+  [ "$action" == "listplatforms" ] && result=$(listplatforms) && wecho "$result" | tee -a ${BUILDLOG}
   [ "$action" == "cleanloader" ] && result=$(cleanbuild) && recho "$result" | tee -a ${BUILDLOG}
   [ "$action" == "extensions" ] && result=$(extmanagement) && wecho "$result" | tee -a ${BUILDLOG}
   [ "$action" == "extadd" ] && wecho "Extadd" && result=$($HOMEPATH/include/extmgr.sh extadd $exturl $MODEL) && wecho "$result" | tee -a ${BUILDLOG}
@@ -2523,6 +2887,10 @@ else
   [ "$action" == "buildstatus" ] && result=$(buildstatus) && echo "$result" | tee -a ${BUILDLOG}
   [ "$action" == "updatescript" ] && result=$(updatescript) && recho "$result" | tee -a ${BUILDLOG}
   [ "$action" == "fullupgrade" ] && result=$(fullupgrade) && recho "$result" | tee -a ${BUILDLOG}
+  [ "$action" == "sysreboot" ] && result=$(sysreboot) && recho "$result" | tee -a ${BUILDLOG}
+  [ "$action" == "filemanagement" ] && result=$(filemanagement) && echo "$result" | tee -a ${BUILDLOG}
+  [ "$action" == "imgbackuploader" ] && result=$(imgbackuploader) && echo "$result" | tee -a ${BUILDLOG}
+  [ "$action" == "showlogs" ] && result=$(showlogs) && echo "$result" | tee -a ${BUILDLOG}
 
   [ "$action" == "none" ] && loaderstatus
 
@@ -2532,12 +2900,7 @@ else
 
     getvars
 
-    if [ $(jq . $USERCONFIGFILE | wc -l) -ge 38 ]; then
-      echo "File $USERCONFIGFILE looks OK" | tee -a $BUILDLOG >/dev/null
-    else
-      wecho "Error file looks corrupted, reset model to recreate"
-      exit 99
-    fi
+    #checkuserconfig
 
     if [ ! -z "$MODEL" ] && [ ! -z "$VERSION" ] && [ ! -z "$serial" ] && [ ! -z "$macaddress" ] && [ ! -z "$buildit" ]; then
 

@@ -22,18 +22,21 @@
       "zImage-001-923p-64216-ramdisk-and-flag-NOP.bsp"
     ],
     "ramdisk": [
-      "@@@COMMON@@@/ramdisk-001-disable-root-pwd.patch",
+      "@@@COMMON@@@/v7.2.0/ramdisk-001-disable-root-pwd.patch",
       "@@@COMMON@@@/v7.2.0/ramdisk-002-init-script.patch",
       "@@@COMMON@@@/v7.2.0/ramdisk-003-post-init-script-noatime.patch",
-      "@@@COMMON@@@/ramdisk-004-network-hosts.patch"
+      "@@@COMMON@@@/v7.2.0/ramdisk-004-network-hosts.patch"
     ]
   },
   "synoinfo": {
-    "rss_server": "http://example.com/autoupdate/genRSS.php",
-    "rss_server_ssl": "https://example.com/autoupdate/genRSS.php",
+    "rss_server": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
+    "rss_server_ssl": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
     "small_info_path": "https://example.com/smallupdate",
     "updateurl": "http://example.com/",
-    "myds_region_api_base_url": "https://example.com/"
+    "myds_region_api_base_url": "https://example.com/",
+    "rss_server_v2": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.json",
+    "maxlanport": "8",
+    "netif_seq": "0 1 2 3 4 5 6 7"
   },
   "grub": {
     "template": "@@@COMMON@@@/grub-template.conf",

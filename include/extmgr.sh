@@ -15,8 +15,15 @@ function getstaticmodule() {
 
         echo "Looking for redpill for : $SYNOMODEL"
 
-        release=$(echo $extension | jq -r -e --arg SYNOMODEL $SYNOMODEL '.releases[$SYNOMODEL]')
-        files=$(curl --insecure --silent --location "$release" | jq -r '.files[] .url' | grep -v ".sh")
+        release="$(echo $extension | jq -r -e --arg SYNOMODEL $SYNOMODEL '.releases[$SYNOMODEL]')"
+        files="$(curl --insecure --silent --location "$release" | jq -r '.files[] .url' | grep -v ".sh")"
+
+        if [ -n "$files" ] && [ "$files" != "null" ]; then
+                echo "SynoModel: $SYNOMODEL, Redpill Make : $redpillmake, Release : $release "
+                echo "Adding RP LKM files : $files"
+        else
+                echo "No RP LKM files found for $SYNOMODEL"
+        fi
 
         for file in $files; do
                 echo "Getting file $file"
@@ -44,7 +51,7 @@ function getstaticmodule() {
 function extadd() {
 
         shift 1
-        extvars $1 $2
+        extvars "$1" "$2"
 
         [ ! -d ${PAYLOADDIR} ] && mkdir ${PAYLOADDIR}
         cd ${PAYLOADDIR}
@@ -66,7 +73,7 @@ function extremove() {
 
         shift 1
 
-        extvars $1 $2
+        extvars "$1" "$2"
 
         [ ! -d ${PAYLOADDIR} ] && mkdir ${PAYLOADDIR}
 
@@ -83,7 +90,7 @@ function extremove() {
 
 function extvars() {
 
-        ext="$(curl --silent --location $1)"
+        ext="$(curl --insecure --silent --location $1)"
         platform="$2"
         [ $(echo $ext | grep 404 | wc -l) -eq 1 ] && echo "Extension not found" && exit 1
         if [ -f platform ] && [ ! "$(cat platform)" == "$platform" ]; then
@@ -95,7 +102,7 @@ function extvars() {
         fi
 
         extid="$(echo $ext | jq -r -e .id)"
-        extrelease="$(curl --silent --location $extcontents)"
+        extrelease="$(curl --insecure --silent --location $extcontents)"
 
         [ $(echo $extrelease | jq . | wc -l) -eq 0 ] && echo "Extension does not contain information about platform $2" && exit 1
 
@@ -122,7 +129,7 @@ function processexts() {
                         download=$(echo $extrelease | jq -r -e ".files[] | select(.name | contains(\"$file\")) .url")
                         modules="$(echo $extrelease | jq -r -e '.kmods')"
                         echo " Downloading : $name "
-                        cd $extid && curl --silent --location $download -O && cd ..
+                        cd $extid && curl --insecure --silent --location $download -O && cd ..
 
                         packed=$(echo $extrelease | jq -r -e ".files[] | select(.name | contains(\"$file\")) .packed")
 
@@ -204,7 +211,7 @@ function createcustominitfile() {
 
         #### CREATE modprobe file
 
-        MODPROBE=$(cat ${CONFIGFILES}/${model}/${version}/config.json | jq -r -e ' .extra .ramdisk_copy' | sed -e 's/"//g' | grep modprobe | sed -s 's/@@@COMMON@@@/\/home\/tc\/config\/_common/' | awk -F: '{print $1}')
+        MODPROBE=$(cat ${CONFIGFILES}/${model}/${version}/config.json | jq -r -e ' .extra .ramdisk_copy' | sed -e 's/"//g' | grep modprobe | sed -e 's/@@@COMMON@@@/\/home\/tc\/config\/_common/' | awk -F: '{print $1}')
 
         cat $MODPROBE >usr/sbin/modprobe
 
@@ -254,13 +261,15 @@ cd /exts
 
 case \$1 in
 load_kmods)
-  _load_kmods
+  _load_kmods >> /exts/extlog.log
   ;;
 on_boot_scripts)
-  _run_scripts 'on_boot'
-  ;;
+  _run_scripts "on_boot" 2>&1 >> /exts/extlog.log
+;;
 on_os_load_scripts)
-  _run_scripts 'on_os_load'
+  _run_scripts "on_os_load" 2>&1 >> /exts/extlog.log
+   cp /exts/extlog.log /tmpRoot/.log.junior/
+  mkdir -p /tcrp && cd /dev && mount synoboot3 /tcrp && mkdir -p /tcrp/extlog && cp -rf /var/log/* /tcrp/extlog/ && cp /exts/extlog.log /tcrp/extlog/ && umount /tcrp
   ;;
 *)
   if [ \$# -lt 1 ]; then
@@ -316,7 +325,7 @@ function syntaxcheck() {
 # ./newcustom.sh extadd https://raw.githubusercontent.com/pocopico/rp-ext/master/vmxnet3/rpext-index.json ds3622xsp_42951
 #$1 $2 $3
 
-echo "CMD LOGGED : $0 , $@" >>$0.log
+echo "$(date "+%Y-%b-%d-%H:%m") CMD LOGGED : $0 , $@" >>$0.log
 
 case $1 in
 

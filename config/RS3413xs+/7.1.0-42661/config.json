@@ -1,10 +1,9 @@
 {
   "os": {
     "id": "rs3413xsp_42661",
-    "pat_url": "https://global.download.synology.com/download/DSM/release/7.1/42661-1/DSM_RS3413xs+_42661.pat",
+    "pat_url": "https://global.download.synology.com/download/DSM/release/7.1/42661-1/DSM_RS3413xs%2B_42661.pat",
     "sha256": "16446a2f8c157ecde3714d0dc1c37cf4e9fd8189286a6417d77c65c0ea87c8e5"
   },
-
   "files": {
     "zlinux": {
       "name": "zImage",
@@ -18,7 +17,6 @@
       "sha256": "ad4f98ed70ef9e69221630ef360713713861402befe8485907353b285a5401cc"
     }
   },
-
   "patches": {
     "_comment": ".bsp patches are applied to FILES using bspatch(1); .patch are applied to DIRECTORIES using patch(1)",
     "zlinux": [
@@ -26,8 +24,8 @@
     ],
     "ramdisk": [
       "@@@COMMON@@@/ramdisk-001-disable-root-pwd.patch",
-      "@@@COMMON@@@/v7.0.1/ramdisk-002-init-script.patch",
-      "@@@COMMON@@@/v7.0.1/ramdisk-003-post-init-script.patch"
+      "@@@COMMON@@@/v7.1.0/ramdisk-002-init-script.patch",
+      "@@@COMMON@@@/v7.1.0/ramdisk-003-post-init-script.patch"
     ]
   },
   "synoinfo": {
@@ -35,11 +33,14 @@
     "internalportcfg": "0x78FF",
     "esataportcfg": "0x0",
     "usbportcfg": "0x8700",
-    "rss_server": "http://example.com/null.xml",
-    "rss_server_ssl": "https://example.com/null.xml",
+    "rss_server": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
+    "rss_server_ssl": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
     "small_info_path": "https://example.com/null",
     "updateurl": "http://example.com/",
-    "myds_region_api_base_url": "https://example.com"
+    "myds_region_api_base_url": "https://example.com",
+    "rss_server_v2": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.json",
+    "maxlanport": "8",
+    "netif_seq": "0 1 2 3 4 5 6 7"
   },
   "grub": {
     "template": "@@@COMMON@@@/grub-template.conf",
@@ -49,7 +50,6 @@
       "pid": "0x0001",
       "mac1": "",
       "netif_num": 1,
-
       "syno_hw_version": "RS3413xs+",
       "syno_hdd_powerup_seq": 0,
       "HddHotplug": 0,
@@ -92,7 +92,7 @@
         "cmdline": {
           "earlyprintk": null,
           "loglevel": 15,
-"synoboot_satadom": 3,
+          "synoboot_satadom": 3,
           "log_buf_len": "32M"
         }
       },
@@ -109,8 +109,7 @@
         "cmdline": {
           "earlyprintk": null,
           "loglevel": 15,
-          "log_buf_len": "32M",
-          "force_junior": null
+          "log_buf_len": "32M"
         }
       },
       "RedPill RS3413xs+ v7.1.0-42661 (SATA, Verbose, Re-Install DSM)": {
@@ -126,9 +125,8 @@
         "cmdline": {
           "earlyprintk": null,
           "loglevel": 15,
-"synoboot_satadom": 3,
-          "log_buf_len": "32M",
-          "force_junior": null
+          "synoboot_satadom": 3,
+          "log_buf_len": "32M"
         }
       }
     }
@@ -150,4 +148,3 @@
     }
   }
 }
-

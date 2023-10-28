@@ -4,7 +4,6 @@
     "pat_url": "https://global.download.synology.com/download/DSM/release/7.1/42550/DSM_DS920%2B_42550.pat",
     "sha256": "41d787bc518c24ba2a044fbe7888738c61a719762628af68ad4b81a870b24f82"
   },
-
   "files": {
     "zlinux": {
       "name": "zImage",
@@ -18,7 +17,6 @@
       "sha256": "6a5a04759407fbcf728b25d4a66229dc37e1ddc3445b5886cefe5cb2b8157480"
     }
   },
-
   "patches": {
     "zlinux": [
       "zImage-001-920p-42550-ramdisk-and-flag-NOP.bsp"
@@ -29,15 +27,16 @@
       "@@@COMMON@@@/v7.1.0/ramdisk-003-post-init-script.patch"
     ]
   },
-
   "synoinfo": {
-    "rss_server": "http://example.com/autoupdate/genRSS.php",
-    "rss_server_ssl": "https://example.com/autoupdate/genRSS.php",
+    "rss_server": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
+    "rss_server_ssl": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
     "small_info_path": "https://example.com/smallupdate",
     "updateurl": "http://example.com/",
-    "myds_region_api_base_url": "https://example.com/"
+    "myds_region_api_base_url": "https://example.com/",
+    "rss_server_v2": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.json",
+    "maxlanport": "8",
+    "netif_seq": "0 1 2 3 4 5 6 7"
   },
-
   "grub": {
     "template": "@@@COMMON@@@/grub-template.conf",
     "base_cmdline": {
@@ -46,7 +45,6 @@
       "pid": "0x0001",
       "mac1": "",
       "netif_num": 1,
-
       "syno_hw_version": "DS920+",
       "intel_iommu": "igfx_off",
       "HddEnableDynamicPower": 1,
@@ -59,7 +57,6 @@
       "root": "/dev/md0",
       "earlycon": "uart8250,io,0x3f8,115200n8"
     },
-
     "menu_entries": {
       "RedPill DS920+ v7.1-42550 Beta (USB, Verbose)": {
         "options": [
@@ -99,7 +96,6 @@
       }
     }
   },
-
   "extra": {
     "compress_rd": false,
     "ramdisk_copy": {
@@ -120,4 +116,3 @@
     }
   }
 }
-

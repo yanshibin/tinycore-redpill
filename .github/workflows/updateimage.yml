@@ -81,6 +81,8 @@ jobs:
           cd $workdir/tempmydata
           sudo tar xvfz $workdir/partition3/mydata.tgz
           
+          sudo chown -R 1001:50 $workdir/tempmydata/home/tc/
+          sudo chown -R 1001:50 $workdir/tempmydata/opt
           cd $workdir/tempmydata/home/tc/
           
           cp -rf /opt/tinycore-redpill/* .
@@ -99,6 +101,10 @@ jobs:
           sudo umount ${loopdev}p2
           sudo umount ${loopdev}p3
           
+          sudo fsck.msdos ${loopdev}p1
+          sudo fsck.msdos ${loopdev}p2
+          sudo fsck.msdos ${loopdev}p3
+
           sudo losetup -d $loopdev
           
           newimgfile="`echo $imgfile | sed -e "s/$imgversion/$VERSION/g"`"
@@ -138,6 +144,8 @@ jobs:
           cd $workdir/tempmydata
           sudo tar xvfz $workdir/partition3/mydata.tgz
           
+          sudo chown -R 1001:50 $workdir/tempmydata/home/tc/
+          sudo chown -R 1001:50 $workdir/tempmydata/opt
           cd $workdir/tempmydata/home/tc/
           
           cp -rf /opt/tinycore-redpill/* .
@@ -155,6 +163,10 @@ jobs:
           sudo umount ${loopdev}p1
           sudo umount ${loopdev}p2
           sudo umount ${loopdev}p3
+          
+          sudo fsck.msdos ${loopdev}p1
+          sudo fsck.msdos ${loopdev}p2
+          sudo fsck.msdos ${loopdev}p3
           
           sudo losetup -d $loopdev
           

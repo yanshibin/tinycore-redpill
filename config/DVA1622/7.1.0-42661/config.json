@@ -4,7 +4,6 @@
     "pat_url": "https://global.download.synology.com/download/DSM/release/7.1/42661-1/DSM_DVA1622_42661.pat",
     "sha256": "f1484cf302627072ca393293cd73e61dc9e09d479ef028b216eae7c12f7b7825"
   },
-
   "files": {
     "zlinux": {
       "name": "zImage",
@@ -18,7 +17,6 @@
       "sha256": "2be1ae55c3e5e247842257c7dc0a2e1a1b009c53ae5014ab65e7abf369cf119a"
     }
   },
-
   "patches": {
     "zlinux": [
       "zImage-001-dva1622-42661-ramdisk-and-flag-NOP.bsp"
@@ -30,19 +28,20 @@
       "@@@COMMON@@@/ramdisk-004-network-hosts.patch"
     ]
   },
-
   "synoinfo": {
     "maxdisks": "16",
     "internalportcfg": "0xffff",
     "esataportcfg": "0x0",
     "buzzeroffen": "0xffff",
-    "rss_server": "http://example.com/null.xml",
-    "rss_server_ssl": "https://example.com/null.xml",
+    "rss_server": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
+    "rss_server_ssl": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
     "small_info_path": "https://example.com/null",
     "updateurl": "http://example.com/",
-    "myds_region_api_base_url": "https://example.com"
+    "myds_region_api_base_url": "https://example.com",
+    "rss_server_v2": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.json",
+    "maxlanport": "8",
+    "netif_seq": "0 1 2 3 4 5 6 7"
   },
-
   "grub": {
     "template": "@@@COMMON@@@/grub-template.conf",
     "base_cmdline": {
@@ -51,7 +50,6 @@
       "pid": "0x0001",
       "mac1": "",
       "netif_num": 1,
-
       "syno_hw_version": "DVA1622",
       "intel_iommu": "igfx_off",
       "HddEnableDynamicPower": 1,
@@ -63,9 +61,7 @@
       "syno_ttyS1": "serial,0x2f8",
       "root": "/dev/md0",
       "earlycon": "uart8250,io,0x3f8,115200n8"
-
     },
-
     "menu_entries": {
       "RedPill DVA1622 v7.1.0-42661 (USB, Verbose)": {
         "options": [
@@ -103,7 +99,6 @@
       }
     }
   },
-
   "extra": {
     "compress_rd": false,
     "ramdisk_copy": {
@@ -124,4 +119,3 @@
     }
   }
 }
-

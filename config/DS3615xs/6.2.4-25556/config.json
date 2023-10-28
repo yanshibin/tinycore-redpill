@@ -4,7 +4,6 @@
     "pat_url": "https://global.download.synology.com/download/DSM/release/6.2.4/25556/DSM_DS3615xs_25556.pat",
     "sha256": "c817adb5c8f7e34dd5fd939da1102deddd80fbc4aad6e01b0aea8a8471c0009b"
   },
-
   "files": {
     "zlinux": {
       "name": "zImage",
@@ -18,7 +17,6 @@
       "sha256": "0145d5e0cbe7cbb27a022f92884419c843045f278db1cbb5af34f9bf6b4220be"
     }
   },
-
   "patches": {
     "zlinux": [
       "zImage-001-3615xs-25556-ramdisk-and-header.bsp"
@@ -34,11 +32,14 @@
     "internalportcfg": "0x78FF",
     "esataportcfg": "0x0",
     "usbportcfg": "0x8700",
-    "rss_server": "http://example.com/null.xml",
-    "rss_server_ssl": "https://example.com/null.xml",
+    "rss_server": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
+    "rss_server_ssl": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
     "small_info_path": "https://example.com/null",
     "updateurl": "http://example.com/",
-    "myds_region_api_base_url": "https://example.com"
+    "myds_region_api_base_url": "https://example.com",
+    "rss_server_v2": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.json",
+    "maxlanport": "8",
+    "netif_seq": "0 1 2 3 4 5 6 7"
   },
   "grub": {
     "template": "@@@COMMON@@@/grub-template.conf",
@@ -48,7 +49,6 @@
       "pid": "0x0001",
       "mac1": "",
       "netif_num": 1,
-
       "syno_hw_version": "DS3615xs",
       "syno_hdd_powerup_seq": 0,
       "HddHotplug": 0,
@@ -114,4 +114,3 @@
     }
   }
 }
-

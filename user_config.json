@@ -1,7 +1,7 @@
 {
   "general": {
     "model": "DS3622xs+",
-    "version": "7.1.1-42951",
+    "version": "7.1.1-42962",
     "smallfixnumber": "0",
     "zimghash": "",
     "rdhash": "",
@@ -9,6 +9,7 @@
     "sata_line": "",
     "redpillmake" : "prod",
     "friendautoupd" : "true",
+    "staticboot" : "false",
     "hidesensitive" : "false"
   }, 
   "ipsettings": {
@@ -32,7 +33,9 @@
     "maxdisks": "16",
     "support_bde_internal_10g": "no",
     "support_disk_compatibility": "no",
-    "support_memory_compatibility": "no"
+    "support_memory_compatibility": "no",
+    "maxlanport" : "8",
+    "netif_seq" : "0 1 2 3 4 5 6 7"
   },
   "ramdisk_copy": {}
 }

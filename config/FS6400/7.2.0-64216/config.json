@@ -23,10 +23,10 @@
       "zImage-001-FS6400-64216-ramdisk-and-header.bsp"
     ],
     "ramdisk": [
-      "@@@COMMON@@@/ramdisk-001-disable-root-pwd.patch",
+      "@@@COMMON@@@/v7.2.0/ramdisk-001-disable-root-pwd.patch",
       "@@@COMMON@@@/v7.2.0/ramdisk-002-init-script.patch",
       "@@@COMMON@@@/v7.2.0/ramdisk-003-post-init-script-noatime.patch",
-      "@@@COMMON@@@/ramdisk-004-network-hosts.patch"
+      "@@@COMMON@@@/v7.2.0/ramdisk-004-network-hosts.patch"
     ]
   },
   "synoinfo": {
@@ -40,7 +40,9 @@
     "rss_server_ssl": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
     "rss_server_v2": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.json",
     "small_info_path": "https://example.com/null",
-    "security_version_server": "https://example.com/smallupdate"
+    "security_version_server": "https://example.com/smallupdate",
+    "maxlanport": "8",
+    "netif_seq": "0 1 2 3 4 5 6 7"
   },
   "grub": {
     "template": "@@@COMMON@@@/grub-template.conf",

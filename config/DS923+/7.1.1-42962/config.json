@@ -2,9 +2,8 @@
   "os": {
     "id": "ds923p_42962",
     "pat_url": "https://global.download.synology.com/download/DSM/release/7.1.1/42962/DSM_DS923%2B_42962.pat",
-"sha256": "e33b47df446ce0bd99c5613767c9dba977915e25acfb5ccb9f5650b14459458f"
+    "sha256": "e33b47df446ce0bd99c5613767c9dba977915e25acfb5ccb9f5650b14459458f"
   },
-
   "files": {
     "zlinux": {
       "name": "zImage",
@@ -18,7 +17,6 @@
       "sha256": "1ba60c78f98ed4dec8d961a69abb68f3736765e29f30c6c3130a6256b478e102"
     }
   },
-
   "patches": {
     "zlinux": [
       "zImage-001-923p-42962-ramdisk-and-flag-NOP.bsp"
@@ -30,15 +28,16 @@
       "@@@COMMON@@@/ramdisk-004-network-hosts.patch"
     ]
   },
-
   "synoinfo": {
-    "rss_server": "http://example.com/autoupdate/genRSS.php",
-    "rss_server_ssl": "https://example.com/autoupdate/genRSS.php",
+    "rss_server": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
+    "rss_server_ssl": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
     "small_info_path": "https://example.com/smallupdate",
     "updateurl": "http://example.com/",
-    "myds_region_api_base_url": "https://example.com/"
+    "myds_region_api_base_url": "https://example.com/",
+    "rss_server_v2": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.json",
+    "maxlanport": "8",
+    "netif_seq": "0 1 2 3 4 5 6 7"
   },
-
   "grub": {
     "template": "@@@COMMON@@@/grub-template.conf",
     "base_cmdline": {
@@ -47,7 +46,6 @@
       "pid": "0x0001",
       "mac1": "",
       "netif_num": 1,
-
       "syno_hw_version": "DS923+",
       "SMBusHddDynamicPower": 1,
       "vender_format_version": 2,
@@ -59,7 +57,6 @@
       "root": "/dev/md0",
       "earlycon": "uart8250,io,0x3f8,115200n8"
     },
-
     "menu_entries": {
       "RedPill DS923+ v7.1.1-42962 (USB, Verbose)": {
         "options": [
@@ -97,7 +94,6 @@
       }
     }
   },
-
   "extra": {
     "compress_rd": false,
     "ramdisk_copy": {
@@ -118,4 +114,3 @@
     }
   }
 }
-

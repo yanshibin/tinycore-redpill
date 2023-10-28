@@ -4,7 +4,6 @@
     "pat_url": "https://global.download.synology.com/download/DSM/release/7.1/42661-1/DSM_DS1520%2B_42661.pat",
     "sha256": "3a8499c5f72d7241b81781ec741d4019eaa506e6e7a4fd17ce54fb149f6ffae6"
   },
-
   "files": {
     "zlinux": {
       "name": "zImage",
@@ -18,18 +17,16 @@
       "sha256": "2df11d9f0b383da1eb34606770e55391f974f9cbc096127fe6a821ecd644e05a"
     }
   },
-
   "patches": {
     "zlinux": [
       "zImage-001-1520p-42661-ramdisk-and-flag-NOP.bsp"
     ],
     "ramdisk": [
       "@@@COMMON@@@/ramdisk-001-disable-root-pwd.patch",
-      "@@@COMMON@@@/v7.0.1/ramdisk-002-init-script.patch",
-      "@@@COMMON@@@/v7.0.1/ramdisk-003-post-init-script.patch"
+      "@@@COMMON@@@/v7.1.1/ramdisk-002-init-script.patch",
+      "@@@COMMON@@@/v7.1.1/ramdisk-003-post-init-script.patch"
     ]
   },
-
   "synoinfo": {
     "maxdisks": "16",
     "internalportcfg": "0xffff",
@@ -38,13 +35,15 @@
     "support_led_brightness_adjustment": "",
     "support_leds_lp3943": "",
     "buzzeroffen": "0xffff",
-    "rss_server": "http://example.com/null.xml",
-    "rss_server_ssl": "https://example.com/null.xml",
+    "rss_server": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
+    "rss_server_ssl": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
     "small_info_path": "https://example.com/null",
     "updateurl": "http://example.com/",
-    "myds_region_api_base_url": "https://example.com"
+    "myds_region_api_base_url": "https://example.com",
+    "rss_server_v2": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.json",
+    "maxlanport": "8",
+    "netif_seq": "0 1 2 3 4 5 6 7"
   },
-
   "grub": {
     "template": "@@@COMMON@@@/grub-template.conf",
     "base_cmdline": {
@@ -53,7 +52,6 @@
       "pid": "0x0001",
       "mac1": "",
       "netif_num": 1,
-
       "syno_hw_version": "DS1520+",
       "intel_iommu": "igfx_off",
       "HddEnableDynamicPower": 1,
@@ -65,9 +63,7 @@
       "syno_ttyS1": "serial,0x2f8",
       "root": "/dev/md0",
       "earlycon": "uart8250,io,0x3f8,115200n8"
-
     },
-
     "menu_entries": {
       "RedPill DS1520+ v7.1.0-42661 (USB, Verbose)": {
         "options": [
@@ -99,7 +95,7 @@
         "cmdline": {
           "earlyprintk": null,
           "loglevel": 15,
-"synoboot_satadom": 3,
+          "synoboot_satadom": 3,
           "log_buf_len": "32M"
         }
       },
@@ -116,8 +112,7 @@
         "cmdline": {
           "earlyprintk": null,
           "loglevel": 15,
-          "log_buf_len": "32M",
-          "force_junior": null
+          "log_buf_len": "32M"
         }
       },
       "RedPill DS1520+ v7.1.0-42661 (SATA, Verbose, Re-Install DSM)": {
@@ -134,14 +129,12 @@
         "cmdline": {
           "earlyprintk": null,
           "loglevel": 15,
-"synoboot_satadom": 3,
-          "log_buf_len": "32M",
-          "force_junior": null
+          "synoboot_satadom": 3,
+          "log_buf_len": "32M"
         }
-      }      
+      }
     }
   },
-
   "extra": {
     "compress_rd": false,
     "ramdisk_copy": {

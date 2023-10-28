@@ -4,7 +4,6 @@
     "pat_url": "https://global.download.synology.com/download/DSM/release/7.1/42621/DSM_DS920%2B_42621.pat",
     "sha256": "e7fa975757d5faa6a275b68b130e7fd552263157a39bc71507ea6f2f466bb359"
   },
-
   "files": {
     "zlinux": {
       "name": "zImage",
@@ -18,7 +17,6 @@
       "sha256": "8e8f27b9b042baac94187add8a31b505520ce52d1b6174a99d4690f7ce5860c3"
     }
   },
-
   "patches": {
     "zlinux": [
       "zImage-001-920p-42621-ramdisk-and-flag-NOP.bsp"
@@ -29,19 +27,20 @@
       "@@@COMMON@@@/v7.1.0/ramdisk-003-post-init-script.patch"
     ]
   },
-
   "synoinfo": {
     "maxdisks": "16",
     "internalportcfg": "0xffff",
     "esataportcfg": "0x0",
     "buzzeroffen": "0xffff",
-    "rss_server": "http://example.com/null.xml",
-    "rss_server_ssl": "https://example.com/null.xml",
+    "rss_server": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
+    "rss_server_ssl": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.xml",
     "small_info_path": "https://example.com/null",
     "updateurl": "http://example.com/",
-    "myds_region_api_base_url": "https://example.com"
+    "myds_region_api_base_url": "https://example.com",
+    "rss_server_v2": "https://raw.githubusercontent.com/pocopico/redpill-load/develop/rss.json",
+    "maxlanport": "8",
+    "netif_seq": "0 1 2 3 4 5 6 7"
   },
-
   "grub": {
     "template": "@@@COMMON@@@/grub-template.conf",
     "base_cmdline": {
@@ -50,7 +49,6 @@
       "pid": "0x0001",
       "mac1": "",
       "netif_num": 1,
-
       "syno_hw_version": "DS920+",
       "intel_iommu": "igfx_off",
       "HddEnableDynamicPower": 1,
@@ -62,9 +60,7 @@
       "syno_ttyS1": "serial,0x2f8",
       "root": "/dev/md0",
       "earlycon": "uart8250,io,0x3f8,115200n8"
-
     },
-
     "menu_entries": {
       "RedPill DS920+ v7.1.0-42621 (USB, Verbose)": {
         "options": [
@@ -104,7 +100,6 @@
       }
     }
   },
-
   "extra": {
     "compress_rd": false,
     "ramdisk_copy": {
@@ -125,4 +120,3 @@
     }
   }
 }
-
